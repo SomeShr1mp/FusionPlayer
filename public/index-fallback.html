@@ -73,6 +73,34 @@
         </div>
     </div>
 
+
+    <!--- WASM loading --->
+<script>
+// Wait for WASM modules to be ready
+window.waitForOpenMPT = function() {
+    return new Promise((resolve) => {
+        let attempts = 0;
+        const checkReady = () => {
+            attempts++;
+            if (typeof Module !== 'undefined' && Module.OpenmptModule) {
+                console.log('OpenMPT WASM ready after', attempts, 'attempts');
+                // Expose libopenmpt for ChiptuneJS
+                if (typeof libopenmpt === 'undefined') {
+                    window.libopenmpt = Module;
+                }
+                resolve();
+            } else if (attempts < 100) {
+                setTimeout(checkReady, 100);
+            } else {
+                console.warn('OpenMPT WASM failed to load after 10 seconds');
+                resolve(); // Continue anyway
+            }
+        };
+        checkReady();
+    });
+};
+</script>
+
     <!-- Load audio libraries -->
     <script src="/js/libopenmpt.js"></script>
     <script src="/js/chiptune2.js"></script>
