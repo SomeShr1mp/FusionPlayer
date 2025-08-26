@@ -6,8 +6,9 @@ services:
       - "3043:3000"
     volumes:
       # Mount your specific music folder to the container
-      - /opt/docker/public/Music/MODS:/app/public/music:ro  # Read-only is safer
-      - /opt/docker/public/Music/MODS/MIDI:/app/public/MIDI:ro
+      - /opt/docker/reetro/public:/app/public
+      - /opt/docker/public/Music/MODS:/app/public/music  # Read-only is safer
+      - /opt/docker/public/Music/MODS/MIDI:/app/public/MIDI
       # Mount SoundFont directory for MIDI playback
       - /opt/docker/public/Music/SoundFonts:/app/public/soundfonts:ro
       # Use named volume for logs to avoid permission issues
