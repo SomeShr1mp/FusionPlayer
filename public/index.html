@@ -116,11 +116,19 @@
                 console.log(`AudioEngine available: ${hasMainAudioEngine}`);
                 console.log(`FallbackAudioEngine available: ${hasFallbackAudioEngine}`);
                 
+                if (!hasMainAudioEngine && !hasFallbackAudioEngine) {
+                    throw new Error('No audio engines available - check if audio-engine.js and fallback-audio-engine.js are loading properly');
+                }
+                
+                let audioEngine;
+                let engineType = '';
+                
                 if (forceFallback || !hasMainAudioEngine) {
                     if (hasFallbackAudioEngine) {
                         console.log('🔄 Using Fallback Audio Engine');
                         uiController.updateSystemStatus('Using Fallback Audio Engine...');
                         audioEngine = new FallbackAudioEngine();
+                        engineType = 'Fallback';
                     } else {
                         throw new Error('FallbackAudioEngine not available');
                     }
@@ -130,19 +138,40 @@
                         console.log('🚀 Attempting Advanced Audio Engine');
                         uiController.updateSystemStatus('Initializing Advanced Audio Engine...');
                         audioEngine = new AudioEngine();
+                        engineType = 'Advanced';
                     } catch (mainError) {
                         console.warn('Main AudioEngine failed, trying fallback:', mainError);
                         if (hasFallbackAudioEngine) {
                             console.log('🔄 Falling back to Fallback Audio Engine');
                             uiController.updateSystemStatus('Falling back to compatibility mode...');
                             audioEngine = new FallbackAudioEngine();
+                            engineType = 'Fallback';
                         } else {
                             throw new Error('No audio engine available');
                         }
                     }
                 }
                 
-                await audioEngine.initialize();
+                try {
+                    await audioEngine.initialize();
+                } catch (initError) {
+                    // If initialization fails, try the other engine
+                    if (engineType === 'Advanced' && hasFallbackAudioEngine) {
+                        console.warn('Advanced engine initialization failed, trying fallback:', initError);
+                        uiController.updateSystemStatus('Advanced engine failed, trying fallback...');
+                        audioEngine = new FallbackAudioEngine();
+                        await audioEngine.initialize();
+                        engineType = 'Fallback';
+                    } else if (engineType === 'Fallback' && hasMainAudioEngine && !forceFallback) {
+                        console.warn('Fallback engine initialization failed, trying advanced:', initError);
+                        uiController.updateSystemStatus('Fallback engine failed, trying advanced...');
+                        audioEngine = new AudioEngine();
+                        await audioEngine.initialize();
+                        engineType = 'Advanced';
+                    } else {
+                        throw initError; // Re-throw if we can't try anything else
+                    }
+                }
                 
                 // Connect UI and Audio Engine
                 uiController.setAudioEngine(audioEngine);
@@ -158,9 +187,27 @@
                 window.player = player;
                 
                 const mode = audioEngine.fallbackMode ? 'Fallback' : 'AudioWorklet';
-                uiController.updateSystemStatus(`🎵 Fusion Player v2.0 ready (${mode} mode)`);
+                let statusMsg = `🎵 Fusion Player v2.0 ready (${mode} mode)`;
+                
+                // Add any warnings about missing features
+                const warnings = [];
+                if (typeof Module === 'undefined' || !Module._openmpt_module_create_from_memory) {
+                    warnings.push('Tracker files may not work (OpenMPT WASM issue)');
+                }
+                if (typeof LibFluidSynth === 'undefined') {
+                    warnings.push('Using TinySynth for MIDI (FluidSynth WASM issue)');
+                }
+                
+                if (warnings.length > 0) {
+                    statusMsg += ` - ⚠️ ${warnings.join(', ')}`;
+                }
+                
+                uiController.updateSystemStatus(statusMsg);
                 
                 console.log('✅ Fusion Music Player v2.0 ready');
+                if (warnings.length > 0) {
+                    console.log('⚠️ Warnings:', warnings.join(', '));
+                }
                 
             } catch (error) {
                 console.error('❌ Player initialization failed:', error);
