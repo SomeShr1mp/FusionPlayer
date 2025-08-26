@@ -5,17 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FUSION MUSIC PLAYER v2.0</title>
     <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <!-- Enhanced Meta Tags -->
+    <meta name="description" content="Advanced retro CRT-style music player with AudioWorklet, OpenMPT.js, and FluidSynth.js support">
+    <meta name="keywords" content="music player, tracker, midi, openmpt, fluidsynth, audioworklet, retro, crt">
+    <meta name="author" content="Fusion Music Player Project">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
 </head>
 <body>
     <div class="container">
         <div class="header">
             <div class="title">▓ FUSION MUSIC PLAYER ▓</div>
-            <div class="subtitle">AudioWorklet + chiptune2.js + JS-Synthesizer :: Phase 2 :: v2.0.0</div>
+            <div class="subtitle">AudioWorklet + OpenMPT + FluidSynth :: Phase 2 :: v2.0.0</div>
+            <div class="system-mode" id="systemMode">Initializing...</div>
         </div>
         
         <div class="main-content">
             <div class="file-browser">
-                <h3>► FILE SYSTEM</h3>
+                <h3>▶ FILE SYSTEM</h3>
                 <div class="file-list" id="fileList">
                     <div style="text-align: center; padding: 20px; color: #00aa00;">
                         <div class="loading"></div> SCANNING DIRECTORY...
@@ -23,7 +35,7 @@
                 </div>
                 
                 <div class="upload-area" id="uploadArea">
-                    <div>► DROP FILES HERE OR CLICK TO UPLOAD ◄</div>
+                    <div>▶ DROP FILES HERE OR CLICK TO UPLOAD ◀</div>
                     <div style="font-size: 10px; margin-top: 5px; color: #00aa00;">
                         Supported: .MOD .XM .IT .S3M .MID .MIDI .SF2
                     </div>
@@ -32,7 +44,7 @@
             </div>
             
             <div class="player-controls">
-                <h3>► PLAYBACK CONTROL</h3>
+                <h3>▶ PLAYBACK CONTROL</h3>
                 <div class="now-playing">
                     <div class="track-info">
                         <div id="trackTitle">No track selected</div>
@@ -50,11 +62,11 @@
                 </div>
                 
                 <div class="controls">
-                    <button class="btn" id="prevBtn">◄◄ PREV</button>
-                    <button class="btn" id="playBtn">► PLAY</button>
-                    <button class="btn" id="pauseBtn" disabled>⏸ PAUSE</button>
-                    <button class="btn" id="stopBtn" disabled>⏹ STOP</button>
-                    <button class="btn" id="nextBtn">NEXT ►►</button>
+                    <button class="btn" id="prevBtn" title="Previous Track">◄◄ PREV</button>
+                    <button class="btn" id="playBtn" title="Play">▶ PLAY</button>
+                    <button class="btn" id="pauseBtn" disabled title="Pause">⏸ PAUSE</button>
+                    <button class="btn" id="stopBtn" disabled title="Stop">⏹ STOP</button>
+                    <button class="btn" id="nextBtn" title="Next Track">NEXT ►►</button>
                 </div>
                 
                 <div class="volume-control">
@@ -64,120 +76,309 @@
                     </div>
                     <span id="volumeDisplay">50%</span>
                 </div>
+                
+                <!-- Enhanced Audio Controls -->
+                <div class="audio-settings">
+                    <div class="setting-group">
+                        <label for="audioMode">ENGINE:</label>
+                        <select id="audioMode" class="setting-select">
+                            <option value="auto">Auto-Detect</option>
+                            <option value="audioworklet">AudioWorklet</option>
+                            <option value="fallback">Fallback Mode</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <button class="btn-small" id="audioTest" title="Test Audio System">TEST AUDIO</button>
+                        <button class="btn-small" id="debugMode" title="Open Debug Console">DEBUG</button>
+                    </div>
+                </div>
             </div>
         </div>
         
         <div class="system-info">
-            <h4>► SYSTEM STATUS</h4>
+            <h4>▶ SYSTEM STATUS</h4>
             <div id="systemStatus">Initializing audio systems...</div>
+            
+            <!-- Enhanced System Info -->
+            <div class="system-details">
+                <div class="system-row">
+                    <span class="label">Audio Context:</span>
+                    <span class="value" id="audioContextStatus">Pending...</span>
+                </div>
+                <div class="system-row">
+                    <span class="label">AudioWorklet:</span>
+                    <span class="value" id="audioWorkletStatus">Checking...</span>
+                </div>
+                <div class="system-row">
+                    <span class="label">OpenMPT:</span>
+                    <span class="value" id="openmptStatus">Loading...</span>
+                </div>
+                <div class="system-row">
+                    <span class="label">FluidSynth:</span>
+                    <span class="value" id="fluidsynthStatus">Loading...</span>
+                </div>
+                <div class="system-row">
+                    <span class="label">Browser:</span>
+                    <span class="value" id="browserInfo">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error Display -->
+        <div class="error-display" id="errorDisplay" style="display: none;">
+            <div class="error-header">⚠ ERROR</div>
+            <div class="error-message" id="errorMessage"></div>
+            <button class="error-close" id="errorClose">×</button>
         </div>
     </div>
 
-<!----WASM loading script!--->
-
-<script>
-// Wait for WASM modules to be ready
-window.waitForOpenMPT = function() {
-    return new Promise((resolve) => {
-        let attempts = 0;
-        const checkReady = () => {
-            attempts++;
-            if (typeof Module !== 'undefined' && Module.OpenmptModule) {
-                console.log('OpenMPT WASM ready after', attempts, 'attempts');
-                // Expose libopenmpt for ChiptuneJS
-                if (typeof libopenmpt === 'undefined') {
-                    window.libopenmpt = Module;
-                }
-                resolve();
-            } else if (attempts < 100) {
-                setTimeout(checkReady, 100);
-            } else {
-                console.warn('OpenMPT WASM failed to load after 10 seconds');
-                resolve(); // Continue anyway
-            }
-        };
-        checkReady();
-    });
-};
-</script>
-
-
-    <!-- Audio Libraries -->
-    <script src="/js/libopenmpt.js"></script>
-    <script src="/js/chiptune2.js"></script>
-    <script src="/js/libfluidsynth-2.3.0.js"></script>
-    <script src="/js/js-synthesizer.js"></script>
-    <script src="/js/webaudio-tinysynth.js"></script>
+    <!-- Audio Libraries - Load in optimized order -->
+    <script src="/js/libopenmpt.js" onerror="console.warn('OpenMPT library failed to load')"></script>
+    <script src="/js/chiptune2.js" onerror="console.warn('Chiptune2 library failed to load')"></script>
+    <script src="/js/libfluidsynth-2.3.0.js" onerror="console.warn('FluidSynth library failed to load')"></script>
+    <script src="/js/js-synthesizer.js" onerror="console.warn('JS-Synthesizer library failed to load')"></script>
+    <script src="/js/webaudio-tinysynth.js" onerror="console.warn('WebAudio TinySynth library failed to load')"></script>
+    <script src="/js/midi-parser.js" onerror="console.warn('MIDI Parser library failed to load')"></script>
     
-    <!-- Application Modules -->
-    <script src="/js/midi-parser.js"></script>
-    <script src="/js/audio-engine.js"></script>
-    <script src="/js/ui-controller.js"></script>
+    <!-- Core Application Files -->
+    <script src="/js/fallback-audio-engine.js" onerror="console.warn('Fallback Audio Engine failed to load')"></script>
+    <script src="/js/audio-engine.js" onerror="console.warn('Audio Engine failed to load')"></script>
+    <script src="/js/ui-controller.js" onerror="console.warn('UI Controller failed to load')"></script>
     
     <script>
-        // Global variables
-        let player;
-        let uiController; // Make globally available for onclick handlers
+        // Enhanced initialization with better error handling
+        let player = null;
+        let initializationAttempts = 0;
+        const maxInitAttempts = 3;
         
-        window.addEventListener('load', () => {
-            console.log('Initializing Fusion Music Player v2.0...');
+        // Browser detection and compatibility check
+        function detectBrowser() {
+            const ua = navigator.userAgent;
+            let browser = 'Unknown';
             
-            // Check library loading status
-            setTimeout(() => {
-                const libStatus = {
-                    Module: typeof Module !== 'undefined',
-                    ChiptuneJsConfig: typeof ChiptuneJsConfig !== 'undefined',
-                    JSSynth: typeof JSSynth !== 'undefined', 
-                    WebAudioTinySynth: typeof WebAudioTinySynth !== 'undefined',
-                    LibFluidSynth: typeof LibFluidSynth !== 'undefined',
-                    AudioEngine: typeof AudioEngine !== 'undefined',
-                    UIController: typeof UIController !== 'undefined',
-                    MidiParser: typeof MidiParser !== 'undefined'
+            if (ua.includes('Chrome/')) browser = 'Chrome ' + ua.match(/Chrome\/(\d+)/)[1];
+            else if (ua.includes('Firefox/')) browser = 'Firefox ' + ua.match(/Firefox\/(\d+)/)[1];
+            else if (ua.includes('Safari/') && !ua.includes('Chrome')) browser = 'Safari';
+            else if (ua.includes('Edge/')) browser = 'Edge';
+            
+            document.getElementById('browserInfo').textContent = browser;
+            return browser;
+        }
+        
+        // Enhanced initialization
+        async function initializePlayer() {
+            try {
+                initializationAttempts++;
+                const browser = detectBrowser();
+                
+                console.log(`🎵 Fusion Music Player v2.0 - Initialization attempt ${initializationAttempts}`);
+                console.log(`🌐 Browser: ${browser}`);
+                
+                // Check for required APIs
+                const checks = {
+                    webAudio: !!(window.AudioContext || window.webkitAudioContext),
+                    audioWorklet: !!(window.AudioContext && AudioContext.prototype.audioWorklet),
+                    webAssembly: typeof WebAssembly !== 'undefined',
+                    fetch: typeof fetch !== 'undefined'
                 };
-                console.log('Library loading status:', libStatus);
                 
-                // Initialize the player with modular components
-                try {
-                    player = new FusionMusicPlayer();
-                } catch (error) {
-                    console.error('Failed to initialize music player:', error);
-                    document.getElementById('systemStatus').textContent = 'ERROR: Failed to initialize - ' + error.message;
+                console.log('🔍 Compatibility check:', checks);
+                
+                if (!checks.webAudio) {
+                    throw new Error('Web Audio API not supported in this browser');
                 }
-            }, 1000);
-        });
-        
-        // Simple player class that coordinates the modules
-        class FusionMusicPlayer {
-            constructor() {
-                this.audioEngine = new AudioEngine();
-                this.uiController = new UIController();
-                this.midiParser = new MidiParser();
                 
-                // Make UI controller globally available
-                window.uiController = this.uiController;
-                uiController = this.uiController;
+                // Initialize UI Controller first
+                const uiController = new UIController();
+                await uiController.initialize();
                 
-                // Connect the modules
-                this.uiController.setAudioEngine(this.audioEngine);
-                this.audioEngine.setUIController(this.uiController);
+                // Initialize Audio Engine (with fallback detection)
+                let audioEngine;
+                const forceFallback = localStorage.getItem('fusionForcesFallback') === 'true';
                 
-                // Initialize everything
-                this.initialize();
-            }
-            
-            async initialize() {
-                try {
-                    await this.audioEngine.initialize();
-                    await this.uiController.initialize();
-                    
-                    console.log('Fusion Music Player initialized successfully');
-                    this.uiController.updateSystemStatus('System ready');
-                } catch (error) {
-                    console.error('Initialization failed:', error);
-                    this.uiController.updateSystemStatus('ERROR: ' + error.message);
+                if (forceFallback || !checks.audioWorklet) {
+                    console.log('🔄 Using Fallback Audio Engine');
+                    document.getElementById('systemMode').textContent = 'Fallback Mode';
+                    audioEngine = new FallbackAudioEngine();
+                } else {
+                    console.log('🚀 Using Advanced Audio Engine');
+                    document.getElementById('systemMode').textContent = 'AudioWorklet Mode';
+                    audioEngine = new AudioEngine();
+                }
+                
+                await audioEngine.initialize();
+                
+                // Connect UI and Audio Engine
+                uiController.setAudioEngine(audioEngine);
+                audioEngine.setUIController(uiController);
+                
+                // Create player instance
+                player = {
+                    uiController: uiController,
+                    audioEngine: audioEngine
+                };
+                
+                // Final status update
+                const mode = audioEngine.fallbackMode ? 'Fallback' : 'AudioWorklet';
+                uiController.updateSystemStatus(`🎵 Fusion Player v2.0 ready (${mode} mode)`);
+                
+                // Show compatibility message if needed
+                if (audioEngine.fallbackMode && initializationAttempts === 1) {
+                    setTimeout(() => {
+                        const compatMsg = 'Running in compatibility mode. For best performance, use Chrome 66+ or Firefox 76+';
+                        uiController.updateSystemStatus(compatMsg);
+                        console.log(compatMsg);
+                    }, 3000);
+                }
+                
+            } catch (error) {
+                console.error('❌ Player initialization failed:', error);
+                
+                const errorDisplay = document.getElementById('errorDisplay');
+                const errorMessage = document.getElementById('errorMessage');
+                
+                if (errorDisplay && errorMessage) {
+                    errorMessage.textContent = `Initialization failed: ${error.message}`;
+                    errorDisplay.style.display = 'block';
+                }
+                
+                // Retry with fallback mode if not already tried
+                if (initializationAttempts < maxInitAttempts && !localStorage.getItem('fusionForcesFallback')) {
+                    console.log('🔄 Retrying with fallback mode...');
+                    localStorage.setItem('fusionForcesFallback', 'true');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    document.getElementById('systemStatus').textContent = 'ERROR: ' + error.message;
                 }
             }
         }
+        
+        // Enhanced event handlers
+        document.addEventListener('DOMContentLoaded', () => {
+            // Add error handler for unhandled promise rejections
+            window.addEventListener('unhandledrejection', (event) => {
+                console.error('Unhandled promise rejection:', event.reason);
+                event.preventDefault();
+            });
+            
+            // Add global error handler
+            window.addEventListener('error', (event) => {
+                console.error('Global error:', event.error);
+            });
+            
+            // Error display close handler
+            const errorClose = document.getElementById('errorClose');
+            if (errorClose) {
+                errorClose.addEventListener('click', () => {
+                    document.getElementById('errorDisplay').style.display = 'none';
+                });
+            }
+            
+            // Debug button handler
+            const debugBtn = document.getElementById('debugMode');
+            if (debugBtn) {
+                debugBtn.addEventListener('click', () => {
+                    window.open('/debug.html', '_blank');
+                });
+            }
+            
+            // Audio test button handler
+            const testBtn = document.getElementById('audioTest');
+            if (testBtn) {
+                testBtn.addEventListener('click', async () => {
+                    try {
+                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        const oscillator = audioContext.createOscillator();
+                        const gainNode = audioContext.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        
+                        oscillator.frequency.value = 440; // A4
+                        gainNode.gain.value = 0.1;
+                        
+                        oscillator.start();
+                        setTimeout(() => oscillator.stop(), 500);
+                        
+                        alert('Audio test successful! You should have heard a tone.');
+                    } catch (error) {
+                        alert('Audio test failed: ' + error.message);
+                    }
+                });
+            }
+            
+            // Audio mode selector handler
+            const audioMode = document.getElementById('audioMode');
+            if (audioMode) {
+                audioMode.addEventListener('change', (e) => {
+                    const mode = e.target.value;
+                    if (mode === 'fallback') {
+                        localStorage.setItem('fusionForcesFallback', 'true');
+                    } else {
+                        localStorage.removeItem('fusionForcesFallback');
+                    }
+                    
+                    if (confirm('Restart required to change audio mode. Restart now?')) {
+                        location.reload();
+                    }
+                });
+                
+                // Set current mode
+                if (localStorage.getItem('fusionForcesFallback') === 'true') {
+                    audioMode.value = 'fallback';
+                }
+            }
+            
+            // Initialize the player
+            setTimeout(initializePlayer, 100);
+        });
+        
+        // User activation for audio context
+        document.addEventListener('click', async function activateAudio() {
+            if (player && player.audioEngine && player.audioEngine.audioContext) {
+                if (player.audioEngine.audioContext.state === 'suspended') {
+                    try {
+                        await player.audioEngine.audioContext.resume();
+                        console.log('🔊 Audio context activated');
+                        player.audioEngine.updateStatus('Audio context activated - ready to play');
+                    } catch (error) {
+                        console.error('Failed to activate audio context:', error);
+                    }
+                }
+            }
+            // Remove this listener after first activation
+            document.removeEventListener('click', activateAudio);
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (!player || !player.uiController) return;
+            
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    if (player.audioEngine.isPlaying) {
+                        player.uiController.handlePause();
+                    } else {
+                        player.uiController.handlePlay();
+                    }
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    player.uiController.handlePrev();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    player.uiController.handleNext();
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    player.uiController.handleStop();
+                    break;
+            }
+        });
     </script>
 </body>
 </html>
