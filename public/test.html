@@ -1,0 +1,29 @@
+const testChiptuneDirectly = async () => {
+    console.log('=== DIRECT CHIPTUNE TEST ===');
+    
+    try {
+        const audioContext = new AudioContext();
+        const player = new ChiptuneJsPlayer(new ChiptuneJsConfig(-1, audioContext));
+        
+        // Test with a simple ArrayBuffer first
+        const testArrayBuffer = new ArrayBuffer(1024);
+        console.log('Testing with ArrayBuffer:', testArrayBuffer);
+        
+        player.load(testArrayBuffer, (error) => {
+            console.log('Direct ArrayBuffer test error:', error);
+        });
+        
+        // Then test with blob URL
+        const blob = new Blob([testArrayBuffer], { type: 'application/octet-stream' });
+        const blobUrl = URL.createObjectURL(blob);
+        console.log('Testing with blob URL:', blobUrl);
+        
+        player.load(blobUrl, (error) => {
+            console.log('Direct blob URL test error:', error);
+            URL.revokeObjectURL(blobUrl);
+        });
+        
+    } catch (error) {
+        console.error('Direct test failed:', error);
+    }
+};
