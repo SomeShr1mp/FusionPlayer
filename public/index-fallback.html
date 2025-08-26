@@ -88,6 +88,7 @@
     <script>
         // Enhanced fallback initialization (keeping original UI)
         let player = null;
+        let uiController = null; // Make globally available for onclick handlers
         
         async function initializeFallbackPlayer() {
             try {
@@ -124,8 +125,11 @@
                 console.log('📊 Library loading status:', libStatus);
                 
                 // Initialize UI Controller first
-                const uiController = new UIController();
+                uiController = new UIController();
                 await uiController.initialize();
+                
+                // Make uiController globally available for onclick handlers
+                window.uiController = uiController;
                 
                 // Initialize Fallback Audio Engine
                 const audioEngine = new FallbackAudioEngine();
@@ -135,14 +139,14 @@
                 uiController.setAudioEngine(audioEngine);
                 audioEngine.setUIController(uiController);
                 
-                // Make UI controller globally available for onclick handlers
-                window.uiController = uiController;
-                
                 // Create player instance
                 player = {
                     uiController: uiController,
                     audioEngine: audioEngine
                 };
+                
+                // Make player globally available for debugging
+                window.player = player;
                 
                 // Show library status
                 const loadedCount = Object.values(libStatus).filter(Boolean).length;
@@ -164,13 +168,25 @@
                 
             } catch (error) {
                 console.error('❌ Fallback initialization failed:', error);
-                document.getElementById('systemStatus').textContent = 'ERROR: ' + error.message;
+                
+                // Show error in system status
+                const systemStatus = document.getElementById('systemStatus');
+                if (systemStatus) {
+                    systemStatus.textContent = 'ERROR: ' + error.message;
+                    systemStatus.style.color = '#ff4444';
+                }
+                
+                // If UI controller exists, use it to show error
+                if (uiController) {
+                    uiController.showError('Initialization failed: ' + error.message);
+                }
             }
         }
         
         // Initialize when page loads
         window.addEventListener('load', () => {
-            setTimeout(initializeFallbackPlayer, 100);
+            // Add a longer delay for fallback mode to ensure all libraries load
+            setTimeout(initializeFallbackPlayer, 300);
         });
         
         // User activation for audio context

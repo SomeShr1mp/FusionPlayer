@@ -92,25 +92,54 @@
     <script>
         // Enhanced initialization with improved error handling (keeping original UI)
         let player = null;
+        let uiController = null; // Make globally available for onclick handlers
         
         async function initializePlayer() {
             try {
                 console.log('🎵 Fusion Music Player v2.0 - Initializing...');
                 
                 // Initialize UI Controller first
-                const uiController = new UIController();
+                uiController = new UIController();
                 await uiController.initialize();
+                
+                // Make uiController globally available for onclick handlers
+                window.uiController = uiController;
                 
                 // Initialize Audio Engine (with automatic fallback detection)
                 let audioEngine;
                 const forceFallback = localStorage.getItem('fusionForcesFallback') === 'true';
                 
-                if (forceFallback || !(window.AudioContext && AudioContext.prototype.audioWorklet)) {
-                    console.log('🔄 Using Fallback Audio Engine');
-                    audioEngine = new FallbackAudioEngine();
+                // Check if we have the required classes available
+                const hasMainAudioEngine = typeof AudioEngine !== 'undefined';
+                const hasFallbackAudioEngine = typeof FallbackAudioEngine !== 'undefined';
+                
+                console.log(`AudioEngine available: ${hasMainAudioEngine}`);
+                console.log(`FallbackAudioEngine available: ${hasFallbackAudioEngine}`);
+                
+                if (forceFallback || !hasMainAudioEngine) {
+                    if (hasFallbackAudioEngine) {
+                        console.log('🔄 Using Fallback Audio Engine');
+                        uiController.updateSystemStatus('Using Fallback Audio Engine...');
+                        audioEngine = new FallbackAudioEngine();
+                    } else {
+                        throw new Error('FallbackAudioEngine not available');
+                    }
                 } else {
-                    console.log('🚀 Using Advanced Audio Engine');
-                    audioEngine = new AudioEngine();
+                    // Try main AudioEngine first, fall back if it fails
+                    try {
+                        console.log('🚀 Attempting Advanced Audio Engine');
+                        uiController.updateSystemStatus('Initializing Advanced Audio Engine...');
+                        audioEngine = new AudioEngine();
+                    } catch (mainError) {
+                        console.warn('Main AudioEngine failed, trying fallback:', mainError);
+                        if (hasFallbackAudioEngine) {
+                            console.log('🔄 Falling back to Fallback Audio Engine');
+                            uiController.updateSystemStatus('Falling back to compatibility mode...');
+                            audioEngine = new FallbackAudioEngine();
+                        } else {
+                            throw new Error('No audio engine available');
+                        }
+                    }
                 }
                 
                 await audioEngine.initialize();
@@ -125,27 +154,37 @@
                     audioEngine: audioEngine
                 };
                 
+                // Make player globally available for debugging
+                window.player = player;
+                
+                const mode = audioEngine.fallbackMode ? 'Fallback' : 'AudioWorklet';
+                uiController.updateSystemStatus(`🎵 Fusion Player v2.0 ready (${mode} mode)`);
+                
                 console.log('✅ Fusion Music Player v2.0 ready');
                 
             } catch (error) {
                 console.error('❌ Player initialization failed:', error);
                 
-                // Retry with fallback mode if not already tried
-                if (!localStorage.getItem('fusionForcesFallback')) {
-                    console.log('🔄 Retrying with fallback mode...');
-                    localStorage.setItem('fusionForcesFallback', 'true');
-                    setTimeout(() => {
-                        location.reload();
-                    }, 2000);
-                } else {
-                    document.getElementById('systemStatus').textContent = 'ERROR: ' + error.message;
+                // Show error in system status
+                const systemStatus = document.getElementById('systemStatus');
+                if (systemStatus) {
+                    systemStatus.textContent = 'ERROR: ' + error.message;
+                    systemStatus.style.color = '#ff4444';
+                }
+                
+                // If UI controller exists, use it to show error
+                if (uiController) {
+                    uiController.showError('Initialization failed: ' + error.message);
+                } else if (window.uiController) {
+                    window.uiController.showError('Initialization failed: ' + error.message);
                 }
             }
         }
         
         // Initialize when page loads
         window.addEventListener('load', () => {
-            setTimeout(initializePlayer, 100);
+            // Add a small delay to ensure all scripts are loaded
+            setTimeout(initializePlayer, 200);
         });
         
         // User activation for audio context

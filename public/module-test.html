@@ -1246,15 +1246,34 @@
         
         function updateSystemOverview() {
             const overview = document.getElementById('systemOverview');
+            
+            let browser = 'Unknown';
+            const ua = navigator.userAgent;
+            if (ua.includes('Chrome/')) browser = 'Chrome ' + ua.match(/Chrome\/(\d+)/)[1];
+            else if (ua.includes('Firefox/')) browser = 'Firefox ' + ua.match(/Firefox\/(\d+)/)[1];
+            else if (ua.includes('Safari/') && !ua.includes('Chrome')) browser = 'Safari';
+            else if (ua.includes('Edge/')) browser = 'Edge';
+            
             const AudioContext = window.AudioContext || window.webkitAudioContext;
+            let audioWorkletSupported = false;
+            
+            try {
+                // Safe AudioWorklet detection
+                if (AudioContext && AudioContext.prototype && AudioContext.prototype.audioWorklet) {
+                    audioWorkletSupported = true;
+                }
+            } catch (error) {
+                console.warn('Error checking AudioWorklet support:', error);
+                audioWorkletSupported = false;
+            }
             
             const info = {
-                'Browser': navigator.userAgent.split(' ').pop(),
+                'Browser': browser,
                 'Audio API': AudioContext ? '✓' : '✗',
-                'AudioWorklet': AudioContext && AudioContext.prototype.audioWorklet ? '✓' : '✗',
+                'AudioWorklet': audioWorkletSupported ? '✓' : '✗',
                 'WebAssembly': typeof WebAssembly !== 'undefined' ? '✓' : '✗',
                 'Libraries Loaded': Object.keys(window).filter(key => 
-                    ['Module', 'ChiptuneJsConfig', 'JSSynth', 'WebAudioTinySynth', 'LibFluidSynth', 'AudioEngine', 'UIController'].includes(key)
+                    ['Module', 'ChiptuneJsConfig', 'JSSynth', 'WebAudioTinySynth', 'LibFluidSynth', 'AudioEngine', 'UIController', 'FallbackAudioEngine'].includes(key)
                 ).length,
                 'Test Results': testResults.length,
                 'Console Entries': consoleLog.length
