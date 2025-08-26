@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FUSION MUSIC PLAYER v2.0 (Fallback)</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title">▓ FUSION MUSIC PLAYER ▓</div>
+            <div class="subtitle">ChiptuneJS + TinySynth :: Fallback Mode :: v2.0.0</div>
+        </div>
+        
+        <div class="main-content">
+            <div class="file-browser">
+                <h3>► FILE SYSTEM</h3>
+                <div class="file-list" id="fileList">
+                    <div style="text-align: center; padding: 20px; color: #00aa00;">
+                        <div class="loading"></div> SCANNING DIRECTORY...
+                    </div>
+                </div>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div>► DROP FILES HERE OR CLICK TO UPLOAD ◄</div>
+                    <div style="font-size: 10px; margin-top: 5px; color: #00aa00;">
+                        Supported: .MOD .XM .IT .S3M .MID .MIDI .SF2
+                    </div>
+                    <input type="file" id="fileInput" style="display: none;" multiple accept=".mod,.xm,.it,.s3m,.mid,.midi,.sf2">
+                </div>
+            </div>
+            
+            <div class="player-controls">
+                <h3>► PLAYBACK CONTROL</h3>
+                <div class="now-playing">
+                    <div class="track-info">
+                        <div id="trackTitle">No track selected</div>
+                        <div id="trackInfo" style="font-size: 11px; color: #00aa00; margin-top: 5px;"></div>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div class="time-display">
+                            <span id="currentTime">00:00</span>
+                            <span id="totalTime">00:00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn" id="prevBtn">◄◄ PREV</button>
+                    <button class="btn" id="playBtn">► PLAY</button>
+                    <button class="btn" id="pauseBtn" disabled>⏸ PAUSE</button>
+                    <button class="btn" id="stopBtn" disabled>⏹ STOP</button>
+                    <button class="btn" id="nextBtn">NEXT ►►</button>
+                </div>
+                
+                <div class="volume-control">
+                    <span>VOL:</span>
+                    <div class="volume-slider" id="volumeSlider">
+                        <div class="volume-fill" id="volumeFill"></div>
+                    </div>
+                    <span id="volumeDisplay">50%</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="system-info">
+            <h4>► SYSTEM STATUS</h4>
+            <div id="systemStatus">Initializing fallback audio systems...</div>
+        </div>
+    </div>
+
+    <!-- Load audio libraries -->
+    <script src="/js/libopenmpt.js"></script>
+    <script src="/js/chiptune2.js"></script>
+    <script src="/js/libfluidsynth-2.3.0.js"></script>
+    <script src="/js/js-synthesizer.js"></script>
+    <script src="/js/webaudio-tinysynth.js"></script>
+    
+    <!-- Load fallback modules -->
+    <script src="/js/midi-parser.js"></script>
+    <script src="/js/fallback-audio-engine.js"></script>
+    <script src="/js/ui-controller.js"></script>
+    
+    <script>
+        // Global variables
+        let player;
+        let uiController;
+        
+        window.addEventListener('load', () => {
+            console.log('🎵 Initializing Fusion Music Player v2.0 (Fallback Mode)...');
+            
+            // Check library loading status
+            setTimeout(() => {
+                const libStatus = {
+                    Module: typeof Module !== 'undefined',
+                    ChiptuneJsConfig: typeof ChiptuneJsConfig !== 'undefined',
+                    ChiptuneJsPlayer: typeof ChiptuneJsPlayer !== 'undefined',
+                    JSSynth: typeof JSSynth !== 'undefined', 
+                    WebAudioTinySynth: typeof WebAudioTinySynth !== 'undefined',
+                    LibFluidSynth: typeof LibFluidSynth !== 'undefined',
+                    FallbackAudioEngine: typeof FallbackAudioEngine !== 'undefined',
+                    UIController: typeof UIController !== 'undefined',
+                    MidiParser: typeof MidiParser !== 'undefined'
+                };
+                
+                console.log('📊 Library loading status:', libStatus);
+                
+                // Show library status in the UI
+                const statusMsg = Object.entries(libStatus)
+                    .map(([name, loaded]) => `${name}:${loaded?'✓':'✗'}`)
+                    .join(' ');
+                document.getElementById('systemStatus').textContent = `Libraries: ${statusMsg}`;
+                
+                // Initialize the player with fallback components
+                try {
+                    player = new FallbackMusicPlayer();
+                } catch (error) {
+                    console.error('Failed to initialize music player:', error);
+                    document.getElementById('systemStatus').textContent = 'ERROR: Failed to initialize - ' + error.message;
+                }
+            }, 2000); // Give libraries more time to load
+        });
+        
+        // Fallback player class that uses FallbackAudioEngine
+        class FallbackMusicPlayer {
+            constructor() {
+                console.log('🎵 Initializing Fallback Music Player...');
+                
+                this.audioEngine = new FallbackAudioEngine();
+                this.uiController = new UIController();
+                this.midiParser = new MidiParser();
+                
+                // Make UI controller globally available
+                window.uiController = this.uiController;
+                uiController = this.uiController;
+                
+                // Connect the modules
+                this.uiController.setAudioEngine(this.audioEngine);
+                this.audioEngine.setUIController(this.uiController);
+                
+                // Initialize everything
+                this.initialize();
+            }
+            
+            async initialize() {
+                try {
+                    console.log('🔧 Initializing fallback audio engine...');
+                    await this.audioEngine.initialize();
+                    
+                    console.log('🎨 Initializing UI controller...');
+                    await this.uiController.initialize();
+                    
+                    console.log('✅ Fallback Music Player initialized successfully');
+                    this.uiController.updateSystemStatus('Fallback system ready - AudioWorklet not supported, using direct audio libraries');
+                    
+                    // Show helpful message about browser compatibility
+                    setTimeout(() => {
+                        const compatMsg = 'ℹ️ Running in compatibility mode. For best performance, use Chrome 66+ or Firefox 76+';
+                        console.log(compatMsg);
+                    }, 3000);
+                    
+                } catch (error) {
+                    console.error('❌ Fallback initialization failed:', error);
+                    this.uiController.updateSystemStatus('ERROR: ' + error.message);
+                }
+            }
+        }
+        
+        // Add click handler to activate audio context
+        document.addEventListener('click', async function activateAudio() {
+            if (player && player.audioEngine && player.audioEngine.audioContext) {
+                if (player.audioEngine.audioContext.state === 'suspended') {
+                    try {
+                        await player.audioEngine.audioContext.resume();
+                        console.log('🔊 Audio context activated');
+                        player.audioEngine.updateStatus('Audio context activated - ready to play');
+                    } catch (error) {
+                        console.error('Failed to activate audio context:', error);
+                    }
+                }
+            }
+            // Remove this listener after first activation
+            document.removeEventListener('click', activateAudio);
+        });
+    </script>
+</body>
+</html>

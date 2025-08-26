@@ -1,0 +1,353 @@
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono:wght@400&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #000;
+    color: #00ff00;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    overflow: hidden;
+    position: relative;
+}
+
+/* CRT Effect */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        linear-gradient(
+            transparent 50%, 
+            rgba(0, 255, 0, 0.03) 50%
+        );
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+/* Scanlines animation */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        0deg,
+        transparent,
+        rgba(0, 255, 0, 0.02),
+        transparent
+    );
+    animation: scanlines 0.1s linear infinite;
+    pointer-events: none;
+    z-index: 999;
+}
+
+@keyframes scanlines {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+}
+
+/* Screen flicker */
+@keyframes flicker {
+    0% { opacity: 1; }
+    98% { opacity: 1; }
+    99% { opacity: 0.98; }
+    100% { opacity: 1; }
+}
+
+.container {
+    height: 100vh;
+    padding: 20px;
+    background: radial-gradient(ellipse at center, #001100 0%, #000 70%);
+    animation: flicker 5s linear infinite;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    border: 2px solid #00ff00;
+    padding: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+    background: rgba(0, 255, 0, 0.1);
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+.title {
+    font-size: 24px;
+    font-weight: bold;
+    text-shadow: 0 0 10px #00ff00;
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    font-size: 12px;
+    color: #00cc00;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    gap: 20px;
+    min-height: 0;
+}
+
+.file-browser {
+    flex: 1;
+    border: 1px solid #00ff00;
+    padding: 10px;
+    background: rgba(0, 255, 0, 0.05);
+}
+
+.file-browser h3 {
+    margin-bottom: 10px;
+    text-decoration: underline;
+    color: #00ffff;
+}
+
+.file-list {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #00aa00;
+    background: #000;
+    padding: 5px;
+}
+
+.file-item {
+    padding: 3px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.1s;
+    font-size: 12px;
+}
+
+.file-item:hover {
+    background: rgba(0, 255, 0, 0.1);
+    border-left-color: #00ff00;
+}
+
+.file-item.selected {
+    background: rgba(0, 255, 0, 0.2);
+    border-left-color: #00ffff;
+}
+
+.file-item.playing {
+    background: rgba(0, 255, 255, 0.2);
+    border-left-color: #ffff00;
+    animation: pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+    from { background: rgba(0, 255, 255, 0.2); }
+    to { background: rgba(255, 255, 0, 0.2); }
+}
+
+.player-controls {
+    flex: 1;
+    border: 1px solid #00ff00;
+    padding: 10px;
+    background: rgba(0, 255, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+}
+
+.now-playing {
+    margin-bottom: 20px;
+    min-height: 100px;
+    border: 1px solid #00aa00;
+    padding: 10px;
+    background: #000;
+}
+
+.track-info {
+    color: #00ffff;
+    margin-bottom: 10px;
+}
+
+.progress-container {
+    margin: 10px 0;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #000;
+    border: 1px solid #00aa00;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ff00, #00aa00);
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.time-display {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 8px 16px;
+    background: #000;
+    border: 2px solid #00ff00;
+    color: #00ff00;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: all 0.1s;
+    text-transform: uppercase;
+}
+
+.btn:hover {
+    background: rgba(0, 255, 0, 0.1);
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+.btn:active {
+    background: rgba(0, 255, 0, 0.2);
+}
+
+.btn:disabled {
+    border-color: #004400;
+    color: #004400;
+    cursor: not-allowed;
+}
+
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.volume-slider {
+    flex: 1;
+    height: 20px;
+    background: #000;
+    border: 1px solid #00aa00;
+    position: relative;
+    cursor: pointer;
+}
+
+.volume-fill {
+    height: 100%;
+    background: #00ff00;
+    width: 50%;
+}
+
+.system-info {
+    border: 1px solid #00ff00;
+    padding: 10px;
+    margin-top: 20px;
+    background: rgba(0, 255, 0, 0.05);
+    font-size: 11px;
+}
+
+.system-info h4 {
+    margin-bottom: 5px;
+    color: #00ffff;
+}
+
+.upload-area {
+    border: 2px dashed #00aa00;
+    padding: 20px;
+    text-align: center;
+    margin: 10px 0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.upload-area:hover {
+    border-color: #00ff00;
+    background: rgba(0, 255, 0, 0.05);
+}
+
+.upload-area.dragover {
+    border-color: #00ffff;
+    background: rgba(0, 255, 255, 0.1);
+}
+
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #004400;
+    border-radius: 50%;
+    border-top-color: #00ff00;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.error {
+    color: #ff4444;
+    background: rgba(255, 68, 68, 0.1);
+    border: 1px solid #ff4444;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .file-list {
+        height: 200px;
+    }
+    
+    .controls {
+        gap: 5px;
+    }
+    
+    .btn {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #000;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #00aa00;
+    border: 1px solid #00ff00;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #00ff00;
+}

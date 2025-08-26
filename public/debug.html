@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fusion Music Player - Audio Library Debug</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            background: #000; 
+            color: #00ff00; 
+            padding: 20px;
+        }
+        .test { 
+            margin: 10px 0; 
+            padding: 10px; 
+            border: 1px solid #004400;
+        }
+        .pass { border-color: #00ff00; background: rgba(0,255,0,0.1); }
+        .fail { border-color: #ff0000; background: rgba(255,0,0,0.1); color: #ff4444; }
+        button {
+            background: #000;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 16px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        button:hover { background: rgba(0,255,0,0.1); }
+    </style>
+</head>
+<body>
+    <h1>🔧 Fusion Music Player - Audio Library Debug</h1>
+    
+    <div id="results"></div>
+    
+    <h2>Manual Tests</h2>
+    <button onclick="testAudioContext()">Test AudioContext</button>
+    <button onclick="testAudioWorklet()">Test AudioWorklet</button>
+    <button onclick="testFileAccess()">Test File Access</button>
+    
+    <h2>Library Loading</h2>
+    <div id="libraryStatus"></div>
+
+    <!-- Load libraries in same order as main app -->
+    <script src="/js/libopenmpt.js"></script>
+    <script src="/js/chiptune2.js"></script>
+    <script src="/js/libfluidsynth-2.3.0.js"></script>
+    <script src="/js/js-synthesizer.js"></script>
+    <script src="/js/webaudio-tinysynth.js"></script>
+    <script src="/js/midi-parser.js"></script>
+    <script src="/js/audio-engine.js"></script>
+    <script src="/js/ui-controller.js"></script>
+    
+    <script>
+        function addResult(test, status, message) {
+            const div = document.createElement('div');
+            div.className = `test ${status}`;
+            div.innerHTML = `<strong>${test}:</strong> ${status.toUpperCase()} - ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        function checkLibrary(name, checkFunction) {
+            try {
+                const result = checkFunction();
+                if (result) {
+                    addResult(`Library: ${name}`, 'pass', 'Available');
+                    return true;
+                } else {
+                    addResult(`Library: ${name}`, 'fail', 'Not available or not ready');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`Library: ${name}`, 'fail', `Error: ${error.message}`);
+                return false;
+            }
+        }
+        
+        async function runTests() {
+            document.getElementById('results').innerHTML = '';
+            
+            // Test basic JavaScript classes
+            addResult('AudioEngine class', typeof AudioEngine !== 'undefined' ? 'pass' : 'fail', 
+                     typeof AudioEngine !== 'undefined' ? 'Loaded' : 'Missing audio-engine.js');
+            
+            addResult('UIController class', typeof UIController !== 'undefined' ? 'pass' : 'fail', 
+                     typeof UIController !== 'undefined' ? 'Loaded' : 'Missing ui-controller.js');
+            
+            addResult('MidiParser class', typeof MidiParser !== 'undefined' ? 'pass' : 'fail', 
+                     typeof MidiParser !== 'undefined' ? 'Loaded' : 'Missing midi-parser.js');
+            
+            // Test audio libraries
+            checkLibrary('OpenMPT Module', () => typeof Module !== 'undefined');
+            checkLibrary('ChiptuneJS Config', () => typeof ChiptuneJsConfig !== 'undefined');
+            checkLibrary('ChiptuneJS Player', () => typeof ChiptuneJsPlayer !== 'undefined');
+            checkLibrary('JSSynth', () => typeof JSSynth !== 'undefined');
+            checkLibrary('WebAudioTinySynth', () => typeof WebAudioTinySynth !== 'undefined');
+            checkLibrary('LibFluidSynth', () => typeof LibFluidSynth !== 'undefined');
+            
+            // Test Web Audio API
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    addResult('Web Audio API', 'pass', 'Supported');
+                    
+                    // Test AudioWorklet support
+                    if (AudioContext.prototype.audioWorklet) {
+                        addResult('AudioWorklet Support', 'pass', 'Supported');
+                    } else {
+                        addResult('AudioWorklet Support', 'fail', 'Not supported in this browser');
+                    }
+                } else {
+                    addResult('Web Audio API', 'fail', 'Not supported');
+                }
+            } catch (error) {
+                addResult('Web Audio API', 'fail', error.message);
+            }
+            
+            // Test file access
+            try {
+                const response = await fetch('/api/music-files');
+                if (response.ok) {
+                    const files = await response.json();
+                    addResult('Music Files API', 'pass', `Found ${files.length} files`);
+                    
+                    if (files.length > 0) {
+                        const firstFile = files[0];
+                        addResult('Sample File', 'pass', `${firstFile.filename} (${firstFile.type})`);
+                    } else {
+                        addResult('Sample File', 'fail', 'No music files found');
+                    }
+                } else {
+                    addResult('Music Files API', 'fail', `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                addResult('Music Files API', 'fail', error.message);
+            }
+        }
+        
+        async function testAudioContext() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext();
+                
+                if (ctx.state === 'suspended') {
+                    await ctx.resume();
+                }
+                
+                addResult('AudioContext Test', 'pass', `State: ${ctx.state}, Sample Rate: ${ctx.sampleRate}`);
+                ctx.close();
+            } catch (error) {
+                addResult('AudioContext Test', 'fail', error.message);
+            }
+        }
+        
+        async function testAudioWorklet() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext();
+                
+                if (ctx.state === 'suspended') {
+                    await ctx.resume();
+                }
+                
+                await ctx.audioWorklet.addModule('/js/audio-worklet-processor.js');
+                const workletNode = new AudioWorkletNode(ctx, 'fusion-audio-processor');
+                
+                addResult('AudioWorklet Test', 'pass', 'Successfully loaded audio-worklet-processor.js');
+                
+                workletNode.disconnect();
+                ctx.close();
+            } catch (error) {
+                addResult('AudioWorklet Test', 'fail', error.message);
+            }
+        }
+        
+        async function testFileAccess() {
+            try {
+                // Test accessing a sample music file
+                const filesResponse = await fetch('/api/music-files');
+                const files = await filesResponse.json();
+                
+                if (files.length === 0) {
+                    addResult('File Access Test', 'fail', 'No files to test');
+                    return;
+                }
+                
+                const testFile = files[0];
+                const fileResponse = await fetch(`/music/${testFile.filename}`, { method: 'HEAD' });
+                
+                if (fileResponse.ok) {
+                    addResult('File Access Test', 'pass', `Can access ${testFile.filename}`);
+                } else {
+                    addResult('File Access Test', 'fail', `Cannot access ${testFile.filename}: HTTP ${fileResponse.status}`);
+                }
+            } catch (error) {
+                addResult('File Access Test', 'fail', error.message);
+            }
+        }
+        
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 1000); // Wait for libraries to load
+        });
+        
+        // Update library status periodically
+        function updateLibraryStatus() {
+            const status = document.getElementById('libraryStatus');
+            const libs = {
+                'OpenMPT Module': typeof Module !== 'undefined',
+                'ChiptuneJS Config': typeof ChiptuneJsConfig !== 'undefined',
+                'JSSynth': typeof JSSynth !== 'undefined',
+                'WebAudioTinySynth': typeof WebAudioTinySynth !== 'undefined',
+                'AudioEngine': typeof AudioEngine !== 'undefined',
+                'UIController': typeof UIController !== 'undefined',
+                'MidiParser': typeof MidiParser !== 'undefined'
+            };
+            
+            status.innerHTML = Object.entries(libs)
+                .map(([name, loaded]) => 
+                    `<div style="color: ${loaded ? '#00ff00' : '#ff4444'}">${name}: ${loaded ? '✓' : '✗'}</div>`
+                )
+                .join('');
+        }
+        
+        setInterval(updateLibraryStatus, 1000);
+    </script>
+</body>
+</html>

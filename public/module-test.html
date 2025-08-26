@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Module Test Suite</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            background: #000; 
+            color: #00ff00; 
+            padding: 20px;
+        }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border: 1px solid #004400;
+            background: rgba(0,40,0,0.1);
+        }
+        button {
+            background: #000;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 16px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        button:hover { background: rgba(0,255,0,0.1); }
+        select {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 5px;
+            font-family: monospace;
+        }
+        .log {
+            max-height: 300px;
+            overflow-y: scroll;
+            border: 1px solid #004400;
+            padding: 10px;
+            margin: 10px 0;
+            background: rgba(0,20,0,0.5);
+        }
+        .log .error { color: #ff4444; }
+        .log .success { color: #44ff44; }
+        .log .info { color: #00aaaa; }
+        .status {
+            font-weight: bold;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Audio Module Test Suite</h1>
+    
+    <div class="test-section">
+        <h3>1. File Selection</h3>
+        <button onclick="listFiles()">List Music Files</button>
+        <div id="fileStatus" class="status">Not tested</div>
+        <select id="fileSelect" style="width: 300px;">
+            <option>Select a file...</option>
+        </select>
+        <button onclick="testFileDownload()">Test Download</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. AudioContext Test</h3>
+        <button onclick="testAudioContext()">Test AudioContext</button>
+        <button onclick="playTestTone()">Play Test Tone</button>
+        <div id="audioStatus" class="status">Not tested</div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. ChiptuneJS MOD Test</h3>
+        <button onclick="testChiptune()">Test ChiptuneJS</button>
+        <button onclick="testChiptunePlayback()">Play Selected MOD File</button>
+        <div id="chiptuneStatus" class="status">Not tested</div>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. TinySynth MIDI Test</h3>
+        <button onclick="testTinySynth()">Test TinySynth</button>
+        <button onclick="playMidiFile()">Play Selected MIDI File</button>
+        <button onclick="playTestMidi()">Play Test MIDI Notes</button>
+        <div id="midiStatus" class="status">Not tested</div>
+    </div>
+    
+    <div class="test-section">
+        <h3>5. Debug Log</h3>
+        <button onclick="clearLog()">Clear Log</button>
+        <div class="log" id="debugLog"></div>
+    </div>
+
+    <!-- Load libraries -->
+    <script src="/js/libopenmpt.js"></script>
+    <script src="/js/chiptune2.js"></script>
+    <script src="/js/js-synthesizer.js"></script>
+    <script src="/js/webaudio-tinysynth.js"></script>
+
+    <script>
+        let audioContext = null;
+        let chiptunePlayer = null;
+        let tinySynth = null;
+        let musicFiles = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('debugLog');
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+        }
+        
+        async function testAudioContext() {
+            try {
+                log('Testing AudioContext creation...', 'info');
+                
+                if (audioContext) {
+                    audioContext.close();
+                }
+                
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                log(`AudioContext created. State: ${audioContext.state}`, 'success');
+                
+                if (audioContext.state === 'suspended') {
+                    log('Attempting to resume AudioContext...', 'info');
+                    await audioContext.resume();
+                    log(`AudioContext resumed. New state: ${audioContext.state}`, 'success');
+                }
+                
+                document.getElementById('audioStatus').textContent = '✓ Ready';
+                document.getElementById('audioStatus').style.color = '#44ff44';
+                
+            } catch (error) {
+                log(`AudioContext test failed: ${error.message}`, 'error');
+                document.getElementById('audioStatus').textContent = `✗ Failed: ${error.message}`;
+                document.getElementById('audioStatus').style.color = '#ff4444';
+            }
+        }
+        
+        function playTestTone() {
+            if (!audioContext) {
+                log('Please test AudioContext first', 'error');
+                return;
+            }
+            
+            try {
+                log('Playing test tone...', 'info');
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 1);
+                
+                log('Test tone played successfully', 'success');
+            } catch (error) {
+                log(`Test tone failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function listFiles() {
+            try {
+                log('Fetching music files list...', 'info');
+                
+                const response = await fetch('/api/music-files');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                musicFiles = await response.json();
+                log(`Found ${musicFiles.length} music files`, 'success');
+                
+                // Populate file selector
+                const select = document.getElementById('fileSelect');
+                select.innerHTML = '<option value="">Select a file...</option>';
+                
+                musicFiles.forEach((file, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `${file.filename} (${file.type})`;
+                    select.appendChild(option);
+                });
+                
+                document.getElementById('fileStatus').textContent = `✓ Found ${musicFiles.length} files`;
+                document.getElementById('fileStatus').style.color = '#44ff44';
+                
+            } catch (error) {
+                log(`File listing failed: ${error.message}`, 'error');
+                document.getElementById('fileStatus').textContent = `✗ Failed: ${error.message}`;
+                document.getElementById('fileStatus').style.color = '#ff4444';
+            }
+        }
+        
+        async function testFileDownload() {
+            const select = document.getElementById('fileSelect');
+            const selectedIndex = select.value;
+            
+            if (!selectedIndex || !musicFiles[selectedIndex]) {
+                log('Please select a file first', 'error');
+                return;
+            }
+            
+            const file = musicFiles[selectedIndex];
+            
+            try {
+                log(`Testing download of ${file.filename}...`, 'info');
+                
+                const response = await fetch(`/music/${file.filename}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                log(`Successfully downloaded ${file.filename} (${arrayBuffer.byteLength} bytes)`, 'success');
+                
+                return arrayBuffer;
+            } catch (error) {
+                log(`File download failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        function testChiptune() {
+            try {
+                log('Testing ChiptuneJS availability...', 'info');
+                
+                log(`Module: ${typeof Module !== 'undefined' ? 'Available' : 'Not available'}`, 'info');
+                log(`ChiptuneJsConfig: ${typeof ChiptuneJsConfig !== 'undefined' ? 'Available' : 'Not available'}`, 'info');
+                log(`ChiptuneJsPlayer: ${typeof ChiptuneJsPlayer !== 'undefined' ? 'Available' : 'Not available'}`, 'info');
+                
+                if (typeof ChiptuneJsConfig === 'undefined' || typeof ChiptuneJsPlayer === 'undefined') {
+                    throw new Error('ChiptuneJS not loaded properly');
+                }
+                
+                if (!audioContext) {
+                    throw new Error('AudioContext not initialized - please test AudioContext first');
+                }
+                
+                log('Creating ChiptuneJS player...', 'info');
+                chiptunePlayer = new ChiptuneJsPlayer(new ChiptuneJsConfig(-1, audioContext));
+                
+                log('ChiptuneJS player created successfully', 'success');
+                document.getElementById('chiptuneStatus').textContent = '✓ Ready';
+                document.getElementById('chiptuneStatus').style.color = '#44ff44';
+                
+            } catch (error) {
+                log(`ChiptuneJS test failed: ${error.message}`, 'error');
+                document.getElementById('chiptuneStatus').textContent = `✗ Failed: ${error.message}`;
+                document.getElementById('chiptuneStatus').style.color = '#ff4444';
+            }
+        }
+        
+        async function testChiptunePlayback() {
+            if (!musicFiles.length) {
+                log('Please list files first', 'error');
+                return;
+            }
+
+            const select = document.getElementById('fileSelect');
+            const selectedIndex = select.value;
+            
+            if (!selectedIndex || !musicFiles[selectedIndex]) {
+                log('Please select a MOD file first', 'error');
+                return;
+            }
+
+            const file = musicFiles[selectedIndex];
+            
+            if (file.type !== 'tracker') {
+                log('Please select a tracker module (.MOD/.XM/.IT/.S3M)', 'error');
+                return;
+            }
+
+            // Auto-initialize if needed
+            if (!audioContext) {
+                log('AudioContext not initialized, initializing now...', 'info');
+                await testAudioContext();
+                if (!audioContext) {
+                    log('Failed to initialize AudioContext', 'error');
+                    return;
+                }
+            }
+
+            if (!chiptunePlayer) {
+                log('ChiptuneJS not initialized, initializing now...', 'info');
+                testChiptune();
+                if (!chiptunePlayer) {
+                    log('Failed to initialize ChiptuneJS', 'error');
+                    return;
+                }
+            }
+            
+            try {
+                log(`Loading ${file.filename} with ChiptuneJS...`, 'info');
+                
+                const arrayBuffer = await testFileDownload();
+                
+                log('File downloaded, creating blob URL for ChiptuneJS...', 'info');
+                
+                // ✅ CRITICAL FIX: Create blob URL instead of passing ArrayBuffer directly
+                const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
+                const blobUrl = URL.createObjectURL(blob);
+                
+                log(`Blob URL created: ${blobUrl.substring(0, 50)}...`, 'info');
+                log('Attempting to load with ChiptuneJS...', 'info');
+                
+                if (typeof chiptunePlayer.load === 'function') {
+                    log('Using chiptunePlayer.load() method with blob URL...', 'info');
+                    
+                    // Use callback-based approach (ChiptuneJS standard)
+                    await new Promise((resolve, reject) => {
+                        chiptunePlayer.load(blobUrl, (error) => {
+                            // Clean up blob URL
+                            URL.revokeObjectURL(blobUrl);
+                            
+                            if (error) {
+                                log(`ChiptuneJS load callback error: ${error}`, 'error');
+                                reject(new Error(`ChiptuneJS load error: ${error}`));
+                                return;
+                            }
+                            
+                            log('ChiptuneJS load callback success, attempting to play...', 'success');
+                            try {
+                                chiptunePlayer.play();
+                                log('ChiptuneJS play() called successfully - you should hear music!', 'success');
+                                resolve();
+                            } catch (playError) {
+                                log(`ChiptuneJS play() error: ${playError.message}`, 'error');
+                                reject(playError);
+                            }
+                        });
+                    });
+                    
+                } else {
+                    log('chiptunePlayer.load is not a function', 'error');
+                    log(`Available methods: ${Object.getOwnPropertyNames(chiptunePlayer)}`, 'info');
+                }
+                
+            } catch (error) {
+                log(`ChiptuneJS playback failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function testTinySynth() {
+            try {
+                log('Testing TinySynth availability...', 'info');
+                
+                log(`WebAudioTinySynth: ${typeof WebAudioTinySynth !== 'undefined' ? 'Available' : 'Not available'}`, 'info');
+                
+                if (typeof WebAudioTinySynth === 'undefined') {
+                    throw new Error('WebAudioTinySynth not loaded');
+                }
+                
+                if (!audioContext) {
+                    throw new Error('AudioContext not initialized - please test AudioContext first');
+                }
+                
+                log('Creating TinySynth instance...', 'info');
+                tinySynth = new WebAudioTinySynth();
+                
+                log('TinySynth created successfully', 'success');
+                document.getElementById('midiStatus').textContent = '✓ Ready';
+                document.getElementById('midiStatus').style.color = '#44ff44';
+                
+            } catch (error) {
+                log(`TinySynth test failed: ${error.message}`, 'error');
+                document.getElementById('midiStatus').textContent = `✗ Failed: ${error.message}`;
+                document.getElementById('midiStatus').style.color = '#ff4444';
+            }
+        }
+        
+        function playTestMidi() {
+            // Auto-initialize if needed
+            if (!audioContext) {
+                log('AudioContext not initialized, initializing now...', 'info');
+                testAudioContext().then(() => {
+                    if (!tinySynth) {
+                        testTinySynth();
+                    }
+                    playTestMidiActual();
+                });
+                return;
+            }
+            
+            if (!tinySynth) {
+                log('TinySynth not initialized, initializing now...', 'info');
+                testTinySynth();
+                if (!tinySynth) {
+                    log('Failed to initialize TinySynth', 'error');
+                    return;
+                }
+            }
+            
+            playTestMidiActual();
+        }
+        
+        function playTestMidiActual() {
+            try {
+                log('Playing test MIDI notes...', 'info');
+                
+                // Play a simple chord
+                const notes = [60, 64, 67]; // C major chord
+                
+                notes.forEach((note, index) => {
+                    setTimeout(() => {
+                        tinySynth.send([0x90, note, 100], 0); // Note on
+                        setTimeout(() => {
+                            tinySynth.send([0x80, note, 0], 0); // Note off
+                        }, 500);
+                    }, index * 200);
+                });
+                
+                log('Test MIDI notes played', 'success');
+                
+            } catch (error) {
+                log(`Test MIDI failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function playMidiFile() {
+            if (!musicFiles.length) {
+                log('Please list files first', 'error');
+                return;
+            }
+
+            const select = document.getElementById('fileSelect');
+            const selectedIndex = select.value;
+            
+            if (!selectedIndex || !musicFiles[selectedIndex]) {
+                log('Please select a MIDI file first', 'error');
+                return;
+            }
+
+            const file = musicFiles[selectedIndex];
+            
+            if (file.type !== 'midi') {
+                log('Please select a MIDI file (.MID/.MIDI)', 'error');
+                return;
+            }
+
+            // Auto-initialize if needed
+            if (!audioContext) {
+                log('AudioContext not initialized, initializing now...', 'info');
+                await testAudioContext();
+                if (!audioContext) {
+                    log('Failed to initialize AudioContext', 'error');
+                    return;
+                }
+            }
+
+            if (!tinySynth) {
+                log('TinySynth not initialized, initializing now...', 'info');
+                testTinySynth();
+                if (!tinySynth) {
+                    log('Failed to initialize TinySynth', 'error');
+                    return;
+                }
+            }
+            
+            try {
+                log(`Loading MIDI file ${file.filename}...`, 'info');
+                
+                const arrayBuffer = await testFileDownload();
+                
+                log('MIDI file downloaded, creating blob URL...', 'info');
+                
+                const blob = new Blob([new Uint8Array(arrayBuffer)], { type: 'audio/midi' });
+                const url = URL.createObjectURL(blob);
+                
+                log('Blob URL created, attempting to load with TinySynth...', 'info');
+                
+                if (typeof tinySynth.loadMIDIUrl === 'function') {
+                    log('Using tinySynth.loadMIDIUrl()...', 'info');
+                    
+                    await tinySynth.loadMIDIUrl(url);
+                    log('MIDI loaded successfully, attempting to play...', 'success');
+                    
+                    tinySynth.playMIDI();
+                    log('TinySynth playMIDI() called - you should hear music!', 'success');
+                    
+                } else if (typeof tinySynth.loadMIDI === 'function') {
+                    log('Using tinySynth.loadMIDI()...', 'info');
+                    
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    tinySynth.loadMIDI(uint8Array);
+                    log('MIDI loaded successfully, attempting to play...', 'success');
+                    
+                    if (typeof tinySynth.play === 'function') {
+                        tinySynth.play();
+                    } else if (typeof tinySynth.playMIDI === 'function') {
+                        tinySynth.playMIDI();
+                    }
+                    log('TinySynth play method called - you should hear music!', 'success');
+                    
+                } else {
+                    log('No suitable MIDI loading method found on TinySynth', 'error');
+                    log(`Available methods: ${Object.getOwnPropertyNames(tinySynth)}`, 'info');
+                }
+                
+                // Clean up blob URL
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                
+            } catch (error) {
+                log(`MIDI file playback failed: ${error.message}`, 'error');
+                console.error('Detailed error:', error);
+            }
+        }
+        
+        // Auto-initialize when page loads
+        window.addEventListener('load', async () => {
+            log('Page loaded, checking library availability...', 'info');
+            
+            setTimeout(async () => {
+                log('Waiting 2 seconds for libraries to load...', 'info');
+                
+                // Check library availability
+                const libs = {
+                    'OpenMPT Module': typeof Module !== 'undefined',
+                    'ChiptuneJsConfig': typeof ChiptuneJsConfig !== 'undefined', 
+                    'ChiptuneJsPlayer': typeof ChiptuneJsPlayer !== 'undefined',
+                    'WebAudioTinySynth': typeof WebAudioTinySynth !== 'undefined'
+                };
+                
+                Object.entries(libs).forEach(([name, available]) => {
+                    log(`${name}: ${available ? 'Available' : 'Not Available'}`, available ? 'success' : 'error');
+                });
+                
+                // Auto-load file list
+                await listFiles();
+                
+                log('Ready for testing. Use the buttons above to test each component.', 'info');
+                log('IMPORTANT: Test AudioContext first before testing other components!', 'info');
+                
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

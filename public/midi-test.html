@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MIDI Test</title>
+</head>
+<body>
+    <h1>MIDI Synthesizer Test</h1>
+    <button id="testTinySynth">Test TinySynth</button>
+    <button id="testJSSynth">Test JS-Synthesizer</button>
+    <div id="output"></div>
+
+    <script src="/js/libfluidsynth-2.3.0.js"></script>
+    <script src="/js/js-synthesizer.js"></script>
+    <script src="/js/webaudio-tinysynth.js"></script>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message) {
+            output.innerHTML += `<p>${new Date().toLocaleTimeString()}: ${message}</p>`;
+            console.log(message);
+        }
+        
+        // Test TinySynth
+        document.getElementById('testTinySynth').addEventListener('click', async () => {
+            try {
+                log('Testing WebAudio-TinySynth...');
+                
+                if (typeof WebAudioTinySynth === 'undefined') {
+                    log('❌ WebAudio-TinySynth not loaded');
+                    return;
+                }
+                
+                const synth = new WebAudioTinySynth({quality: 1, useReverb: 1});
+                log('✅ TinySynth created');
+                
+                // Play a simple C major chord
+                synth.send([0x90, 60, 100], 0); // Note On C4
+                synth.send([0x90, 64, 100], 0); // Note On E4
+                synth.send([0x90, 67, 100], 0); // Note On G4
+                
+                setTimeout(() => {
+                    synth.send([0x80, 60, 100], 0); // Note Off C4
+                    synth.send([0x80, 64, 100], 0); // Note Off E4
+                    synth.send([0x80, 67, 100], 0); // Note Off G4
+                    log('✅ TinySynth chord played');
+                }, 1000);
+                
+            } catch (error) {
+                log('❌ TinySynth error: ' + error.message);
+            }
+        });
+        
+        // Test JS-Synthesizer
+        document.getElementById('testJSSynth').addEventListener('click', async () => {
+            try {
+                log('Testing JS-Synthesizer...');
+                
+                if (typeof JSSynth === 'undefined') {
+                    log('❌ JS-Synthesizer not loaded');
+                    return;
+                }
+                
+                await JSSynth.waitForReady();
+                log('✅ JS-Synthesizer ready');
+                
+                const synth = new JSSynth.Synthesizer();
+                await synth.init(44100);
+                log('✅ JS-Synthesizer initialized');
+                
+                // Try to load SoundFont
+                try {
+                    const response = await fetch('/soundfonts/default.sf2');
+                    if (response.ok) {
+                        const soundFontData = await response.arrayBuffer();
+                        await synth.loadSoundFont(new Uint8Array(soundFontData));
+                        log('✅ SoundFont loaded');
+                    } else {
+                        log('⚠️ SoundFont not found, using built-in sounds');
+                    }
+                } catch (sfError) {
+                    log('⚠️ SoundFont loading failed: ' + sfError.message);
+                }
+                
+                // Play test notes
+                synth.noteOn(0, 60, 100); // C4
+                synth.noteOn(0, 64, 100); // E4
+                synth.noteOn(0, 67, 100); // G4
+                
+                setTimeout(() => {
+                    synth.noteOff(0, 60);
+                    synth.noteOff(0, 64);
+                    synth.noteOff(0, 67);
+                    log('✅ JS-Synthesizer chord played');
+                }, 1000);
+                
+            } catch (error) {
+                log('❌ JS-Synthesizer error: ' + error.message);
+            }
+        });
+        
+        // Log library status on load
+        window.addEventListener('load', () => {
+            log(`Libraries loaded: TinySynth=${typeof WebAudioTinySynth !== 'undefined'}, JSSynth=${typeof JSSynth !== 'undefined'}, FluidSynth=${typeof LibFluidSynth !== 'undefined'}`);
+        });
+    </script>
+</body>
+</html>

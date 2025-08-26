@@ -1,0 +1,58 @@
+services:
+  music-player:
+    build: .
+    container_name: reetro
+    ports:
+      - "3043:3000"
+    volumes:
+      # Mount your specific music folder to the container
+      - /opt/docker/public/Music/MODS:/app/public/music:ro  # Read-only is safer
+      - /opt/docker/public/Music/MODS/MIDI:/app/public/MIDI:ro
+      # Mount SoundFont directory for MIDI playback
+      - /opt/docker/public/Music/SoundFonts:/app/public/soundfonts:ro
+      # Use named volume for logs to avoid permission issues
+      - fusion-logs:/app/logs
+      # Upload directory that needs write access
+      - fusion-uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      # Phase 2 specific environment variables
+      - AUDIO_ENGINE_VERSION=2.0
+      - ENABLE_FLUIDSYNTH=true
+      - ENABLE_OPENMPT=true
+      - DEFAULT_SOUNDFONT=default.sf2
+      - MAX_UPLOAD_SIZE=200MB
+    restart: unless-stopped
+    # Use the non-root user from Dockerfile
+    user: "1001:1001"  # musicplayer user
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Resource limits for Phase 2 (audio processing requires more resources)
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - billy
+
+networks:
+   billy:
+    name: 'billy'
+    external: true
+
+# Named volumes for proper permission handling
+volumes:
+  fusion-logs:
+    driver: local
+  fusion-uploads:
+    driver: local
