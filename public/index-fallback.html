@@ -15,7 +15,7 @@
         
         <div class="main-content">
             <div class="file-browser">
-                <h3>► FILE SYSTEM</h3>
+                <h3>▶ FILE SYSTEM</h3>
                 <div class="file-list" id="fileList">
                     <div style="text-align: center; padding: 20px; color: #00aa00;">
                         <div class="loading"></div> SCANNING DIRECTORY...
@@ -23,7 +23,7 @@
                 </div>
                 
                 <div class="upload-area" id="uploadArea">
-                    <div>► DROP FILES HERE OR CLICK TO UPLOAD ◄</div>
+                    <div>▶ DROP FILES HERE OR CLICK TO UPLOAD ◀</div>
                     <div style="font-size: 10px; margin-top: 5px; color: #00aa00;">
                         Supported: .MOD .XM .IT .S3M .MID .MIDI .SF2
                     </div>
@@ -32,7 +32,7 @@
             </div>
             
             <div class="player-controls">
-                <h3>► PLAYBACK CONTROL</h3>
+                <h3>▶ PLAYBACK CONTROL</h3>
                 <div class="now-playing">
                     <div class="track-info">
                         <div id="trackTitle">No track selected</div>
@@ -51,7 +51,7 @@
                 
                 <div class="controls">
                     <button class="btn" id="prevBtn">◄◄ PREV</button>
-                    <button class="btn" id="playBtn">► PLAY</button>
+                    <button class="btn" id="playBtn">▶ PLAY</button>
                     <button class="btn" id="pauseBtn" disabled>⏸ PAUSE</button>
                     <button class="btn" id="stopBtn" disabled>⏹ STOP</button>
                     <button class="btn" id="nextBtn">NEXT ►►</button>
@@ -68,61 +68,47 @@
         </div>
         
         <div class="system-info">
-            <h4>► SYSTEM STATUS</h4>
+            <h4>▶ SYSTEM STATUS</h4>
             <div id="systemStatus">Initializing fallback audio systems...</div>
         </div>
     </div>
 
-
-    <!--- WASM loading --->
-<script>
-// Wait for WASM modules to be ready
-window.waitForOpenMPT = function() {
-    return new Promise((resolve) => {
-        let attempts = 0;
-        const checkReady = () => {
-            attempts++;
-            if (typeof Module !== 'undefined' && Module.OpenmptModule) {
-                console.log('OpenMPT WASM ready after', attempts, 'attempts');
-                // Expose libopenmpt for ChiptuneJS
-                if (typeof libopenmpt === 'undefined') {
-                    window.libopenmpt = Module;
-                }
-                resolve();
-            } else if (attempts < 100) {
-                setTimeout(checkReady, 100);
-            } else {
-                console.warn('OpenMPT WASM failed to load after 10 seconds');
-                resolve(); // Continue anyway
-            }
-        };
-        checkReady();
-    });
-};
-</script>
-
-    <!-- Load audio libraries -->
+    <!-- Audio Libraries - Fallback Mode -->
     <script src="/js/libopenmpt.js"></script>
     <script src="/js/chiptune2.js"></script>
     <script src="/js/libfluidsynth-2.3.0.js"></script>
     <script src="/js/js-synthesizer.js"></script>
     <script src="/js/webaudio-tinysynth.js"></script>
-    
-    <!-- Load fallback modules -->
     <script src="/js/midi-parser.js"></script>
+    
+    <!-- Fallback Engine and UI Controller -->
     <script src="/js/fallback-audio-engine.js"></script>
     <script src="/js/ui-controller.js"></script>
     
     <script>
-        // Global variables
-        let player;
-        let uiController;
+        // Enhanced fallback initialization (keeping original UI)
+        let player = null;
         
-        window.addEventListener('load', () => {
-            console.log('🎵 Initializing Fusion Music Player v2.0 (Fallback Mode)...');
-            
-            // Check library loading status
-            setTimeout(() => {
+        async function initializeFallbackPlayer() {
+            try {
+                console.log('🎵 Fusion Music Player v2.0 - Fallback Mode Initializing...');
+                
+                // Wait for libraries to load with timeout
+                let attempts = 0;
+                const maxAttempts = 50;
+                
+                while (typeof FallbackAudioEngine === 'undefined' && 
+                       typeof UIController === 'undefined' && 
+                       attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                if (attempts >= maxAttempts) {
+                    throw new Error('Required libraries failed to load');
+                }
+                
+                // Check library loading status
                 const libStatus = {
                     Module: typeof Module !== 'undefined',
                     ChiptuneJsConfig: typeof ChiptuneJsConfig !== 'undefined',
@@ -137,68 +123,57 @@ window.waitForOpenMPT = function() {
                 
                 console.log('📊 Library loading status:', libStatus);
                 
-                // Show library status in the UI
-                const statusMsg = Object.entries(libStatus)
-                    .map(([name, loaded]) => `${name}:${loaded?'✓':'✗'}`)
-                    .join(' ');
-                document.getElementById('systemStatus').textContent = `Libraries: ${statusMsg}`;
+                // Initialize UI Controller first
+                const uiController = new UIController();
+                await uiController.initialize();
                 
-                // Initialize the player with fallback components
-                try {
-                    player = new FallbackMusicPlayer();
-                } catch (error) {
-                    console.error('Failed to initialize music player:', error);
-                    document.getElementById('systemStatus').textContent = 'ERROR: Failed to initialize - ' + error.message;
-                }
-            }, 2000); // Give libraries more time to load
-        });
-        
-        // Fallback player class that uses FallbackAudioEngine
-        class FallbackMusicPlayer {
-            constructor() {
-                console.log('🎵 Initializing Fallback Music Player...');
+                // Initialize Fallback Audio Engine
+                const audioEngine = new FallbackAudioEngine();
+                await audioEngine.initialize();
                 
-                this.audioEngine = new FallbackAudioEngine();
-                this.uiController = new UIController();
-                this.midiParser = new MidiParser();
+                // Connect UI and Audio Engine
+                uiController.setAudioEngine(audioEngine);
+                audioEngine.setUIController(uiController);
                 
-                // Make UI controller globally available
-                window.uiController = this.uiController;
-                uiController = this.uiController;
+                // Make UI controller globally available for onclick handlers
+                window.uiController = uiController;
                 
-                // Connect the modules
-                this.uiController.setAudioEngine(this.audioEngine);
-                this.audioEngine.setUIController(this.uiController);
+                // Create player instance
+                player = {
+                    uiController: uiController,
+                    audioEngine: audioEngine
+                };
                 
-                // Initialize everything
-                this.initialize();
-            }
-            
-            async initialize() {
-                try {
-                    console.log('🔧 Initializing fallback audio engine...');
-                    await this.audioEngine.initialize();
-                    
-                    console.log('🎨 Initializing UI controller...');
-                    await this.uiController.initialize();
-                    
-                    console.log('✅ Fallback Music Player initialized successfully');
-                    this.uiController.updateSystemStatus('Fallback system ready - AudioWorklet not supported, using direct audio libraries');
-                    
-                    // Show helpful message about browser compatibility
-                    setTimeout(() => {
-                        const compatMsg = 'ℹ️ Running in compatibility mode. For best performance, use Chrome 66+ or Firefox 76+';
-                        console.log(compatMsg);
-                    }, 3000);
-                    
-                } catch (error) {
-                    console.error('❌ Fallback initialization failed:', error);
-                    this.uiController.updateSystemStatus('ERROR: ' + error.message);
-                }
+                // Show library status
+                const loadedCount = Object.values(libStatus).filter(Boolean).length;
+                const totalCount = Object.keys(libStatus).length;
+                
+                uiController.updateSystemStatus(
+                    `🎵 Fallback system ready (${loadedCount}/${totalCount} libraries loaded) ` +
+                    `- Running without AudioWorklet support`
+                );
+                
+                // Show compatibility message
+                setTimeout(() => {
+                    const compatMsg = 'ℹ️ Running in compatibility mode. For best performance, use Chrome 66+ or Firefox 76+';
+                    uiController.updateSystemStatus(compatMsg);
+                    console.log(compatMsg);
+                }, 3000);
+                
+                console.log('✅ Fallback Music Player initialized successfully');
+                
+            } catch (error) {
+                console.error('❌ Fallback initialization failed:', error);
+                document.getElementById('systemStatus').textContent = 'ERROR: ' + error.message;
             }
         }
         
-        // Add click handler to activate audio context
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            setTimeout(initializeFallbackPlayer, 100);
+        });
+        
+        // User activation for audio context
         document.addEventListener('click', async function activateAudio() {
             if (player && player.audioEngine && player.audioEngine.audioContext) {
                 if (player.audioEngine.audioContext.state === 'suspended') {
@@ -213,6 +188,34 @@ window.waitForOpenMPT = function() {
             }
             // Remove this listener after first activation
             document.removeEventListener('click', activateAudio);
+        });
+        
+        // Basic keyboard shortcuts (keeping original functionality)
+        document.addEventListener('keydown', (e) => {
+            if (!player || !player.uiController) return;
+            
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    if (player.audioEngine.isPlaying) {
+                        player.uiController.handlePause();
+                    } else {
+                        player.uiController.handlePlay();
+                    }
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    player.uiController.handlePrev();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    player.uiController.handleNext();
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    player.uiController.handleStop();
+                    break;
+            }
         });
     </script>
 </body>

@@ -72,9 +72,7 @@ class UIController {
             'trackTitle', 'trackInfo', 'progressBar', 'progressFill',
             'currentTime', 'totalTime', 'volumeSlider', 'volumeFill', 'volumeDisplay',
             'playBtn', 'pauseBtn', 'stopBtn', 'prevBtn', 'nextBtn',
-            'systemStatus', 'systemMode',
-            'audioContextStatus', 'audioWorkletStatus', 'openmptStatus', 'fluidsynthStatus',
-            'errorDisplay', 'errorMessage', 'errorClose'
+            'systemStatus'
         ];
         
         elementIds.forEach(id => {
@@ -731,20 +729,7 @@ class UIController {
         try {
             console.error('🚨 UI Error:', message);
             
-            if (this.elements.errorDisplay && this.elements.errorMessage) {
-                this.elements.errorMessage.textContent = message;
-                this.elements.errorDisplay.style.display = 'block';
-                
-                // Auto-hide error after 10 seconds
-                if (this.errorDisplayTimeout) {
-                    clearTimeout(this.errorDisplayTimeout);
-                }
-                this.errorDisplayTimeout = setTimeout(() => {
-                    this.hideError();
-                }, 10000);
-            }
-            
-            // Also update system status
+            // Simple error handling - just update system status
             this.updateSystemStatus('ERROR: ' + message);
             
         } catch (error) {
@@ -752,17 +737,13 @@ class UIController {
         }
     }
     
-    hideError() {
+    // Utility method for safe execution with error boundaries
+    safeExecute(fn) {
         try {
-            if (this.elements.errorDisplay) {
-                this.elements.errorDisplay.style.display = 'none';
-            }
-            if (this.errorDisplayTimeout) {
-                clearTimeout(this.errorDisplayTimeout);
-                this.errorDisplayTimeout = null;
-            }
+            return fn();
         } catch (error) {
-            console.error('Error hiding error:', error);
+            console.error('Safe execution error:', error);
+            this.showError('Operation failed: ' + error.message);
         }
     }
     
@@ -778,51 +759,6 @@ class UIController {
             
         } catch (error) {
             console.warn('Status update error:', error);
-        }
-    }
-    
-    // Enhanced status update methods for different components
-    updateAudioContextStatus(status) {
-        if (this.elements.audioContextStatus) {
-            this.elements.audioContextStatus.textContent = status;
-            this.elements.audioContextStatus.className = 'value ' + (status === 'running' ? 'status-good' : 'status-pending');
-        }
-    }
-    
-    updateAudioWorkletStatus(status) {
-        if (this.elements.audioWorkletStatus) {
-            this.elements.audioWorkletStatus.textContent = status;
-            const statusClass = status === 'ready' ? 'status-good' : 
-                               status === 'failed' || status === 'not supported' ? 'status-error' : 'status-pending';
-            this.elements.audioWorkletStatus.className = 'value ' + statusClass;
-        }
-    }
-    
-    updateOpenMPTStatus(status) {
-        if (this.elements.openmptStatus) {
-            this.elements.openmptStatus.textContent = status;
-            const statusClass = status === 'ready' ? 'status-good' : 
-                               status === 'failed' ? 'status-error' : 'status-pending';
-            this.elements.openmptStatus.className = 'value ' + statusClass;
-        }
-    }
-    
-    updateFluidSynthStatus(status) {
-        if (this.elements.fluidsynthStatus) {
-            this.elements.fluidsynthStatus.textContent = status;
-            const statusClass = status === 'ready' ? 'status-good' : 
-                               status === 'failed' ? 'status-error' : 'status-pending';
-            this.elements.fluidsynthStatus.className = 'value ' + statusClass;
-        }
-    }
-    
-    // Utility method for safe execution with error boundaries
-    safeExecute(fn) {
-        try {
-            return fn();
-        } catch (error) {
-            console.error('Safe execution error:', error);
-            this.showError('Operation failed: ' + error.message);
         }
     }
     

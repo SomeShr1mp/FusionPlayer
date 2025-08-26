@@ -6,9 +6,9 @@
     <title>Fusion Music Player - Enhanced Debug Console</title>
     <style>
         body { 
-            font-family: 'MS Sans Serif', 'Tahoma', sans-serif; 
-            background: #c0c0c0; 
-            color: #000000; 
+            font-family: 'Courier New', monospace; 
+            background: #000; 
+            color: #00ff00; 
             padding: 20px;
             margin: 0;
             line-height: 1.4;
@@ -17,95 +17,94 @@
         .header {
             text-align: center;
             margin-bottom: 30px;
-            border: 2px inset #c0c0c0;
-            padding: 20px;
-            background: #c0c0c0;
+            border-bottom: 2px solid #004400;
+            padding-bottom: 20px;
         }
         
         .header h1 {
             margin: 0;
-            color: #000080;
-            font-family: 'MS Sans Serif', sans-serif;
-            font-size: 18px;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            font-family: 'Courier New', monospace;
         }
         
         .header .version {
-            color: #000000;
+            color: #00aa00;
             margin-top: 5px;
-            font-size: 11px;
         }
         
         .section {
-            margin-bottom: 20px;
-            border: 2px outset #c0c0c0;
+            margin-bottom: 30px;
+            border: 1px solid #004400;
             padding: 15px;
-            background: #c0c0c0;
+            background: rgba(0,68,0,0.1);
         }
         
         .section h2 {
             margin-top: 0;
-            color: #000080;
-            font-size: 14px;
-            font-weight: bold;
-            border-bottom: 1px solid #808080;
-            padding-bottom: 5px;
-            font-family: 'MS Sans Serif', sans-serif;
+            color: #00dd00;
+            border-bottom: 1px solid #006600;
+            padding-bottom: 10px;
         }
         
         .test { 
-            margin: 4px 0; 
-            padding: 4px 8px; 
-            border: 1px inset #c0c0c0;
-            background: #ffffff;
+            margin: 8px 0; 
+            padding: 8px; 
+            border: 1px solid #004400;
+            background: rgba(0,34,0,0.3);
+            border-radius: 3px;
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 11px;
+            gap: 10px;
         }
         
         .test-name {
-            font-weight: normal;
-            min-width: 180px;
-            font-family: 'MS Sans Serif', sans-serif;
+            font-weight: bold;
+            min-width: 200px;
         }
         
         .test-status {
-            padding: 1px 4px;
-            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
             font-weight: bold;
-            font-family: 'MS Sans Serif', sans-serif;
         }
         
         .pass { 
-            color: #000080;
+            border-color: #00ff00; 
+            background: rgba(0,255,0,0.1); 
         }
         
         .pass .test-status {
-            background: #008000;
-            color: #ffffff;
+            background: #00aa00;
+            color: #000;
         }
         
         .fail { 
-            color: #800000;
+            border-color: #ff0000; 
+            background: rgba(255,0,0,0.1); 
+            color: #ff4444; 
         }
         
         .fail .test-status {
-            background: #ff0000;
-            color: #ffffff;
+            background: #cc0000;
+            color: #fff;
         }
         
         .warn { 
-            color: #808000;
+            border-color: #ffaa00; 
+            background: rgba(255,170,0,0.1); 
+            color: #ffaa00; 
         }
         
         .warn .test-status {
-            background: #ffff00;
-            color: #000000;
+            background: #aa7700;
+            color: #fff;
         }
         
         .test-message {
             flex-grow: 1;
-            font-size: 11px;
+            font-size: 12px;
         }
         
         .controls {
@@ -142,83 +141,103 @@
         
         .library-status {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
             margin-top: 10px;
         }
         
         .lib-item {
-            padding: 4px;
-            border: 1px inset #c0c0c0;
-            background: #ffffff;
-            font-size: 10px;
-            font-family: 'MS Sans Serif', sans-serif;
+            padding: 5px;
+            border: 1px solid #004400;
+            background: rgba(0,34,0,0.3);
+            border-radius: 3px;
+            font-size: 11px;
         }
         
         .results-container {
-            max-height: 350px;
+            max-height: 400px;
             overflow-y: auto;
-            border: 2px inset #c0c0c0;
-            padding: 8px;
-            background: #ffffff;
+            border: 1px solid #004400;
+            padding: 10px;
+            background: rgba(0,17,0,0.5);
         }
         
         .performance-metrics {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
             margin-top: 10px;
         }
         
         .metric {
-            padding: 8px;
-            border: 1px outset #c0c0c0;
-            background: #c0c0c0;
+            padding: 5px;
+            border: 1px solid #004400;
+            background: rgba(0,34,0,0.3);
             text-align: center;
-            font-family: 'MS Sans Serif', sans-serif;
+            border-radius: 3px;
         }
         
         .metric-value {
-            font-size: 12px;
+            font-size: 14px;
             font-weight: bold;
-            color: #000080;
+            color: #00dd00;
         }
         
         .metric-label {
-            font-size: 9px;
-            color: #000000;
+            font-size: 10px;
+            color: #00aa00;
         }
         
         .log-container {
-            background: #000000;
-            border: 2px inset #c0c0c0;
-            padding: 8px;
-            max-height: 180px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #004400;
+            padding: 10px;
+            max-height: 200px;
             overflow-y: auto;
-            font-size: 10px;
-            font-family: 'Courier New', monospace;
-            color: #ffffff;
+            font-size: 11px;
         }
         
         .log-entry {
-            margin: 1px 0;
-            padding: 1px 0;
+            margin: 2px 0;
+            padding: 2px 0;
         }
         
-        .log-error { color: #ff8080; }
-        .log-warn { color: #ffff80; }
-        .log-info { color: #80ff80; }
-        .log-debug { color: #808080; }
+        .log-error { color: #ff4444; }
+        .log-warn { color: #ffaa00; }
+        .log-info { color: #00aa00; }
+        .log-debug { color: #666; }
         
         .auto-refresh {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #c0c0c0;
-            border: 2px outset #c0c0c0;
-            padding: 8px;
-            font-family: 'MS Sans Serif', sans-serif;
-            font-size: 10px;
+            background: rgba(0,34,0,0.8);
+            border: 1px solid #004400;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        
+        select {
+            background: #000000;
+            color: #00ff00;
+            border: 1px solid #00aa00;
+            padding: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+        }
+        
+        select option {
+            background: #000000;
+            color: #00ff00;
+        }
+        
+        .status-display {
+            margin: 10px 0;
+            padding: 5px;
+            border: 1px solid #004400;
+            background: rgba(0,34,0,0.2);
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
         }
         
         @keyframes blink {
@@ -233,8 +252,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>💻 FUSION MUSIC PLAYER DEBUG CONSOLE</h1>
-        <div class="version">Enhanced Debug Suite v2.0 :: Phase 2 Testing :: Windows 98 Style</div>
+        <h1>🔧 FUSION MUSIC PLAYER DEBUG CONSOLE</h1>
+        <div class="version">Enhanced Debug Suite v2.0 :: Phase 2 Testing :: CRT Terminal Mode</div>
     </div>
     
     <div class="auto-refresh">
@@ -248,27 +267,61 @@
     </div>
     
     <div class="section">
-        <h2>⚡ Quick Actions</h2>
+        <h2>🚀 Quick Actions</h2>
         <div class="controls">
-            <button onclick="runAllTests()">📋 Run All Tests</button>
+            <button onclick="runAllTests()">🔍 Run All Tests</button>
             <button onclick="runAudioTests()">🔊 Audio Tests</button>
-            <button onclick="runLibraryTests()">📁 Library Tests</button>
-            <button onclick="runPerformanceTests()">📊 Performance Tests</button>
-            <button onclick="runDiagnostics()">🔧 Full Diagnostics</button>
-            <button onclick="clearResults()">🗑 Clear Results</button>
+            <button onclick="runLibraryTests()">📚 Library Tests</button>
+            <button onclick="runPerformanceTests()">⚡ Performance Tests</button>
+            <button onclick="runDiagnostics()">🩺 Full Diagnostics</button>
+            <button onclick="clearResults()">🗑️ Clear Results</button>
             <button onclick="exportResults()">💾 Export Results</button>
-            <button onclick="testAudioPlayback()">▶ Test Playback</button>
+            <button onclick="testAudioPlayback()">🎵 Test Playback</button>
         </div>
     </div>
     
     <div class="section">
-        <h2>💻 System Status</h2>
+        <h2>📁 File Selection & Testing</h2>
+        <div class="controls">
+            <button onclick="listFiles()">📂 Load File List</button>
+            <button onclick="testFileDownload()">⬇️ Test Download</button>
+            <button onclick="playTestTone()">🔊 Test Tone</button>
+        </div>
+        <div id="fileStatus" class="status-display">No files loaded</div>
+        <select id="fileSelect" style="width:100%;margin:5px 0;">
+            <option value="">Select a file...</option>
+        </select>
+    </div>
+    
+    <div class="section">
+        <h2>🎵 ChiptuneJS Module Testing</h2>
+        <div class="controls">
+            <button onclick="testChiptune()">🔧 Test ChiptuneJS</button>
+            <button onclick="playChiptuneFile()">▶️ Play MOD File</button>
+            <button onclick="stopChiptune()">⏹️ Stop MOD</button>
+        </div>
+        <div id="chiptuneStatus" class="status-display">Not tested</div>
+    </div>
+    
+    <div class="section">
+        <h2>🎹 TinySynth MIDI Testing</h2>
+        <div class="controls">
+            <button onclick="testTinySynth()">🔧 Test TinySynth</button>
+            <button onclick="playTestMidi()">🎼 Test MIDI Notes</button>
+            <button onclick="playMidiFile()">▶️ Play MIDI File</button>
+            <button onclick="stopMidi()">⏹️ Stop MIDI</button>
+        </div>
+        <div id="midiStatus" class="status-display">Not tested</div>
+    </div>
+    
+    <div class="section">
+        <h2>📊 System Status</h2>
         <div id="systemOverview"></div>
         <div class="performance-metrics" id="performanceMetrics"></div>
     </div>
     
     <div class="section">
-        <h2>📁 Library Status</h2>
+        <h2>📚 Library Status</h2>
         <div class="library-status" id="libraryStatus"></div>
     </div>
     
@@ -278,7 +331,7 @@
     </div>
     
     <div class="section">
-        <h2>📄 Console Log</h2>
+        <h2>📝 Console Log</h2>
         <div class="log-container" id="consoleLog"></div>
     </div>
 
@@ -300,6 +353,13 @@
         let audioEngine = null;
         let uiController = null;
         let startTime = performance.now();
+        
+        // Audio testing variables from module-test.html
+        let testAudioContext = null;
+        let chiptunePlayer = null;
+        let tinySynth = null;
+        let musicFiles = [];
+        let currentPlayback = null;
         
         // Capture console output
         const originalConsole = {
@@ -378,14 +438,14 @@
             try {
                 const result = checkFunction();
                 if (result) {
-                    addResult(`📂 Library: ${name}`, 'pass', 'Available and functional');
+                    addResult(`Library: ${name}`, 'pass', 'Available and functional');
                     return true;
                 } else {
-                    addResult(`📂 Library: ${name}`, 'fail', 'Not available or not functional');
+                    addResult(`Library: ${name}`, 'fail', 'Not available or not functional');
                     return false;
                 }
             } catch (error) {
-                addResult(`📂 Library: ${name}`, 'fail', `Error: ${error.message}`);
+                addResult(`Library: ${name}`, 'fail', `Error: ${error.message}`);
                 return false;
             }
         }
@@ -412,7 +472,7 @@
         }
         
         async function runBasicTests() {
-            addResult('💻 Basic Tests', 'info', 'Running basic environment tests...');
+            addResult('Basic Tests', 'info', 'Running basic environment tests...');
             
             // Browser detection
             const ua = navigator.userAgent;
@@ -422,48 +482,48 @@
             else if (ua.includes('Safari/') && !ua.includes('Chrome')) browser = 'Safari';
             else if (ua.includes('Edge/')) browser = 'Edge';
             
-            addResult('🌐 Browser Detection', 'pass', browser);
+            addResult('Browser Detection', 'pass', browser);
             
             // JavaScript features
-            addResult('⚙ ES6 Support', typeof Promise !== 'undefined' ? 'pass' : 'fail', 
+            addResult('ES6 Support', typeof Promise !== 'undefined' ? 'pass' : 'fail', 
                      typeof Promise !== 'undefined' ? 'Promise support available' : 'No Promise support');
             
-            addResult('📡 Fetch API', typeof fetch !== 'undefined' ? 'pass' : 'fail',
+            addResult('Fetch API', typeof fetch !== 'undefined' ? 'pass' : 'fail',
                      typeof fetch !== 'undefined' ? 'Fetch API available' : 'Fetch API not available');
             
             // Web Audio API
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (AudioContext) {
-                addResult('🔊 Web Audio API', 'pass', 'Supported');
+                addResult('Web Audio API', 'pass', 'Supported');
                 
                 // Test AudioWorklet support
                 if (AudioContext.prototype.audioWorklet) {
-                    addResult('⚡ AudioWorklet Support', 'pass', 'Supported');
+                    addResult('AudioWorklet Support', 'pass', 'Supported');
                 } else {
-                    addResult('⚡ AudioWorklet Support', 'fail', 'Not supported in this browser');
+                    addResult('AudioWorklet Support', 'fail', 'Not supported in this browser');
                 }
                 
                 // Test Web Audio features
                 try {
                     const tempContext = new AudioContext();
-                    addResult('🎛 AudioContext Creation', 'pass', `Sample rate: ${tempContext.sampleRate}Hz`);
+                    addResult('AudioContext Creation', 'pass', `Sample rate: ${tempContext.sampleRate}Hz`);
                     
                     if (tempContext.audioWorklet) {
-                        addResult('⚡ AudioWorklet Available', 'pass', 'AudioWorklet interface available');
+                        addResult('AudioWorklet Available', 'pass', 'AudioWorklet interface available');
                     } else {
-                        addResult('⚡ AudioWorklet Available', 'fail', 'AudioWorklet not available');
+                        addResult('AudioWorklet Available', 'fail', 'AudioWorklet not available');
                     }
                     
                     tempContext.close();
                 } catch (error) {
-                    addResult('🎛 AudioContext Creation', 'fail', error.message);
+                    addResult('AudioContext Creation', 'fail', error.message);
                 }
             } else {
-                addResult('🔊 Web Audio API', 'fail', 'Not supported');
+                addResult('Web Audio API', 'fail', 'Not supported');
             }
             
             // WebAssembly
-            addResult('🔧 WebAssembly Support', typeof WebAssembly !== 'undefined' ? 'pass' : 'fail',
+            addResult('WebAssembly Support', typeof WebAssembly !== 'undefined' ? 'pass' : 'fail',
                      typeof WebAssembly !== 'undefined' ? 'WebAssembly available' : 'WebAssembly not available');
         }
         
@@ -711,6 +771,455 @@
             addResult('Export', 'pass', 'Debug results exported successfully');
         }
         
+        // ===== MODULE-TEST.HTML FUNCTIONALITY =====
+        
+        async function playTestTone() {
+            if (!testAudioContext) {
+                await initTestAudioContext();
+            }
+            
+            if (!testAudioContext) {
+                addResult('Test Tone', 'fail', 'AudioContext not available');
+                return;
+            }
+            
+            try {
+                addResult('Test Tone', 'info', 'Playing 440Hz test tone...');
+                
+                const oscillator = testAudioContext.createOscillator();
+                const gainNode = testAudioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(testAudioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(440, testAudioContext.currentTime);
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.1, testAudioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, testAudioContext.currentTime + 1);
+                
+                oscillator.start();
+                oscillator.stop(testAudioContext.currentTime + 1);
+                
+                addResult('Test Tone', 'pass', 'Test tone played successfully');
+            } catch (error) {
+                addResult('Test Tone', 'fail', `Test tone failed: ${error.message}`);
+            }
+        }
+        
+        async function initTestAudioContext() {
+            try {
+                if (testAudioContext) {
+                    testAudioContext.close();
+                }
+                
+                testAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                addResult('Test AudioContext', 'pass', `AudioContext created (${testAudioContext.state})`);
+                
+                if (testAudioContext.state === 'suspended') {
+                    await testAudioContext.resume();
+                    addResult('Test AudioContext', 'pass', `AudioContext resumed (${testAudioContext.state})`);
+                }
+                
+                return true;
+            } catch (error) {
+                addResult('Test AudioContext', 'fail', `AudioContext creation failed: ${error.message}`);
+                return false;
+            }
+        }
+        
+        async function listFiles() {
+            try {
+                addResult('File List', 'info', 'Fetching music files from server...');
+                
+                const response = await fetch('/api/music-files');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                musicFiles = await response.json();
+                addResult('File List', 'pass', `Found ${musicFiles.length} music files`);
+                
+                // Populate file selector
+                const select = document.getElementById('fileSelect');
+                select.innerHTML = '<option value="">Select a file...</option>';
+                
+                musicFiles.forEach((file, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `${file.filename} (${file.type} - ${file.displaySize || 'unknown size'})`;
+                    select.appendChild(option);
+                });
+                
+                document.getElementById('fileStatus').textContent = `✓ Found ${musicFiles.length} files`;
+                document.getElementById('fileStatus').style.color = '#00ff00';
+                
+            } catch (error) {
+                addResult('File List', 'fail', `File listing failed: ${error.message}`);
+                document.getElementById('fileStatus').textContent = `✗ Failed: ${error.message}`;
+                document.getElementById('fileStatus').style.color = '#ff4444';
+            }
+        }
+        
+        async function testFileDownload() {
+            const select = document.getElementById('fileSelect');
+            const selectedIndex = select.value;
+            
+            if (!selectedIndex || !musicFiles[selectedIndex]) {
+                addResult('File Download', 'fail', 'Please select a file first');
+                return;
+            }
+            
+            const file = musicFiles[selectedIndex];
+            
+            try {
+                addResult('File Download', 'info', `Testing download of ${file.filename}...`);
+                
+                const response = await fetch(`/music/${file.filename}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                addResult('File Download', 'pass', `Downloaded ${file.filename} (${arrayBuffer.byteLength} bytes)`);
+                
+                return arrayBuffer;
+            } catch (error) {
+                addResult('File Download', 'fail', `Download failed: ${error.message}`);
+                throw error;
+            }
+        }
+        
+        function testChiptune() {
+            try {
+                addResult('ChiptuneJS Test', 'info', 'Testing ChiptuneJS availability...');
+                
+                const libs = {
+                    'Module': typeof Module !== 'undefined',
+                    'ChiptuneJsConfig': typeof ChiptuneJsConfig !== 'undefined',
+                    'ChiptuneJsPlayer': typeof ChiptuneJsPlayer !== 'undefined'
+                };
+                
+                Object.entries(libs).forEach(([name, available]) => {
+                    addResult(`ChiptuneJS ${name}`, available ? 'pass' : 'fail', 
+                        available ? 'Available' : 'Not available');
+                });
+                
+                if (!libs.ChiptuneJsConfig || !libs.ChiptuneJsPlayer) {
+                    throw new Error('ChiptuneJS not loaded properly');
+                }
+                
+                if (!testAudioContext) {
+                    throw new Error('Test AudioContext not initialized');
+                }
+                
+                addResult('ChiptuneJS Player', 'info', 'Creating ChiptuneJS player...');
+                chiptunePlayer = new ChiptuneJsPlayer(new ChiptuneJsConfig(-1, testAudioContext));
+                
+                addResult('ChiptuneJS Player', 'pass', 'ChiptuneJS player created successfully');
+                document.getElementById('chiptuneStatus').textContent = '✓ Ready';
+                document.getElementById('chiptuneStatus').style.color = '#00ff00';
+                
+            } catch (error) {
+                addResult('ChiptuneJS Test', 'fail', `ChiptuneJS test failed: ${error.message}`);
+                document.getElementById('chiptuneStatus').textContent = `✗ Failed: ${error.message}`;
+                document.getElementById('chiptuneStatus').style.color = '#ff4444';
+            }
+        }
+        
+        async function playChiptuneFile() {
+            const select = document.getElementById('fileSelect');
+            const selectedIndex = select.value;
+            
+            if (!selectedIndex || !musicFiles[selectedIndex]) {
+                addResult('ChiptuneJS Play', 'fail', 'Please select a file first');
+                return;
+            }
+            
+            const file = musicFiles[selectedIndex];
+            
+            if (file.type !== 'tracker') {
+                addResult('ChiptuneJS Play', 'fail', 'Please select a tracker file (.mod, .xm, .it, .s3m)');
+                return;
+            }
+            
+            if (!chiptunePlayer) {
+                addResult('ChiptuneJS Play', 'info', 'ChiptuneJS not initialized. Running test...');
+                await initTestAudioContext();
+                testChiptune();
+                if (!chiptunePlayer) {
+                    addResult('ChiptuneJS Play', 'fail', 'ChiptuneJS initialization failed');
+                    return;
+                }
+            }
+            
+            try {
+                addResult('ChiptuneJS Play', 'info', `Loading ${file.filename} with ChiptuneJS...`);
+                
+                const arrayBuffer = await testFileDownload();
+                
+                addResult('ChiptuneJS Play', 'info', 'File downloaded, loading with ChiptuneJS...');
+                
+                // Stop any current playback
+                if (currentPlayback) {
+                    try {
+                        chiptunePlayer.stop();
+                    } catch (e) {
+                        console.warn('Error stopping previous playback:', e);
+                    }
+                }
+                
+                // Try the play method directly (some ChiptuneJS versions work this way)
+                if (typeof chiptunePlayer.play === 'function') {
+                    try {
+                        chiptunePlayer.play(arrayBuffer);
+                        addResult('ChiptuneJS Play', 'pass', `Playing ${file.filename} with ChiptuneJS`);
+                        currentPlayback = { type: 'chiptune', player: chiptunePlayer };
+                        
+                        // Set up event handlers if available
+                        if (chiptunePlayer.onEnded) {
+                            chiptunePlayer.onEnded = () => {
+                                addResult('ChiptuneJS Playback', 'info', 'Playback ended');
+                                currentPlayback = null;
+                            };
+                        }
+                        
+                        return;
+                    } catch (playError) {
+                        addResult('ChiptuneJS Play', 'warn', `Direct play failed: ${playError.message}`);
+                    }
+                }
+                
+                // Try callback-based loading
+                if (typeof chiptunePlayer.load === 'function') {
+                    addResult('ChiptuneJS Play', 'info', 'Using callback-based loading...');
+                    
+                    chiptunePlayer.load(arrayBuffer, (error) => {
+                        if (error) {
+                            addResult('ChiptuneJS Play', 'fail', `Load callback error: ${error}`);
+                        } else {
+                            addResult('ChiptuneJS Play', 'pass', 'Load successful, starting playback...');
+                            try {
+                                chiptunePlayer.play();
+                                addResult('ChiptuneJS Play', 'pass', `Playing ${file.filename}`);
+                                currentPlayback = { type: 'chiptune', player: chiptunePlayer };
+                            } catch (playError) {
+                                addResult('ChiptuneJS Play', 'fail', `Play error: ${playError.message}`);
+                            }
+                        }
+                    });
+                } else {
+                    addResult('ChiptuneJS Play', 'fail', 'No suitable play method found');
+                    addResult('ChiptuneJS Play', 'info', `Available methods: ${Object.getOwnPropertyNames(chiptunePlayer)}`);
+                }
+                
+            } catch (error) {
+                addResult('ChiptuneJS Play', 'fail', `Playback failed: ${error.message}`);
+            }
+        }
+        
+        function stopChiptune() {
+            if (chiptunePlayer && currentPlayback?.type === 'chiptune') {
+                try {
+                    chiptunePlayer.stop();
+                    addResult('ChiptuneJS Stop', 'pass', 'ChiptuneJS playback stopped');
+                    currentPlayback = null;
+                } catch (error) {
+                    addResult('ChiptuneJS Stop', 'fail', `Stop failed: ${error.message}`);
+                }
+            } else {
+                addResult('ChiptuneJS Stop', 'warn', 'No ChiptuneJS playback to stop');
+            }
+        }
+        
+        function testTinySynth() {
+            try {
+                addResult('TinySynth Test', 'info', 'Testing TinySynth availability...');
+                
+                if (typeof WebAudioTinySynth === 'undefined') {
+                    throw new Error('WebAudioTinySynth not loaded');
+                }
+                
+                if (!testAudioContext) {
+                    throw new Error('Test AudioContext not initialized');
+                }
+                
+                addResult('TinySynth Test', 'info', 'Creating TinySynth instance...');
+                tinySynth = new WebAudioTinySynth({
+                    quality: 1,
+                    useReverb: 1,
+                    voices: 32
+                });
+                
+                addResult('TinySynth Test', 'pass', 'TinySynth created successfully');
+                addResult('TinySynth Test', 'info', `Available methods: ${Object.getOwnPropertyNames(tinySynth)}`);
+                
+                document.getElementById('midiStatus').textContent = '✓ Ready';
+                document.getElementById('midiStatus').style.color = '#00ff00';
+                
+            } catch (error) {
+                addResult('TinySynth Test', 'fail', `TinySynth test failed: ${error.message}`);
+                document.getElementById('midiStatus').textContent = `✗ Failed: ${error.message}`;
+                document.getElementById('midiStatus').style.color = '#ff4444';
+            }
+        }
+        
+        async function playTestMidi() {
+            if (!tinySynth) {
+                addResult('Test MIDI', 'info', 'TinySynth not initialized. Running test...');
+                await initTestAudioContext();
+                testTinySynth();
+                if (!tinySynth) {
+                    addResult('Test MIDI', 'fail', 'TinySynth initialization failed');
+                    return;
+                }
+            }
+            
+            try {
+                addResult('Test MIDI', 'info', 'Playing test MIDI sequence...');
+                
+                // Test C major chord progression
+                const chords = [
+                    [60, 64, 67], // C major
+                    [62, 65, 69], // D minor  
+                    [64, 67, 71], // E minor
+                    [65, 69, 72]  // F major
+                ];
+                
+                let noteTime = 0;
+                chords.forEach((chord, chordIndex) => {
+                    chord.forEach(note => {
+                        setTimeout(() => {
+                            addResult('Test MIDI', 'info', `Playing note ${note}`);
+                            tinySynth.send([0x90, note, 100], 0); // Note on
+                            
+                            setTimeout(() => {
+                                tinySynth.send([0x80, note, 0], 0); // Note off
+                            }, 800);
+                        }, noteTime);
+                        noteTime += 50;
+                    });
+                    noteTime += 750;
+                });
+                
+                addResult('Test MIDI', 'pass', 'Test MIDI sequence started');
+                
+            } catch (error) {
+                addResult('Test MIDI', 'fail', `Test MIDI failed: ${error.message}`);
+            }
+        }
+        
+        async function playMidiFile() {
+            const select = document.getElementById('fileSelect');
+            const selectedIndex = select.value;
+            
+            if (!selectedIndex || !musicFiles[selectedIndex]) {
+                addResult('MIDI File Play', 'fail', 'Please select a file first');
+                return;
+            }
+            
+            const file = musicFiles[selectedIndex];
+            
+            if (file.type !== 'midi') {
+                addResult('MIDI File Play', 'fail', 'Please select a MIDI file (.mid, .midi)');
+                return;
+            }
+            
+            if (!tinySynth) {
+                addResult('MIDI File Play', 'info', 'TinySynth not initialized. Running test...');
+                await initTestAudioContext();
+                testTinySynth();
+                if (!tinySynth) {
+                    addResult('MIDI File Play', 'fail', 'TinySynth initialization failed');
+                    return;
+                }
+            }
+            
+            try {
+                addResult('MIDI File Play', 'info', `Loading MIDI file ${file.filename}...`);
+                
+                const arrayBuffer = await testFileDownload();
+                
+                // Stop any current playback
+                if (currentPlayback) {
+                    stopMidi();
+                }
+                
+                addResult('MIDI File Play', 'info', 'MIDI file downloaded, attempting to play...');
+                
+                // Try different TinySynth loading methods
+                if (typeof tinySynth.loadMIDIUrl === 'function') {
+                    addResult('MIDI File Play', 'info', 'Using loadMIDIUrl method...');
+                    
+                    const blob = new Blob([new Uint8Array(arrayBuffer)], { type: 'audio/midi' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    await tinySynth.loadMIDIUrl(url);
+                    tinySynth.playMIDI();
+                    
+                    addResult('MIDI File Play', 'pass', `Playing ${file.filename} with TinySynth`);
+                    currentPlayback = { type: 'midi', player: tinySynth, url: url };
+                    
+                    // Clean up URL later
+                    setTimeout(() => URL.revokeObjectURL(url), 5000);
+                    
+                } else if (typeof tinySynth.loadMIDI === 'function') {
+                    addResult('MIDI File Play', 'info', 'Using loadMIDI method...');
+                    
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    tinySynth.loadMIDI(uint8Array);
+                    
+                    if (typeof tinySynth.play === 'function') {
+                        tinySynth.play();
+                    } else if (typeof tinySynth.playMIDI === 'function') {
+                        tinySynth.playMIDI();
+                    }
+                    
+                    addResult('MIDI File Play', 'pass', `Playing ${file.filename} with TinySynth`);
+                    currentPlayback = { type: 'midi', player: tinySynth };
+                    
+                } else {
+                    addResult('MIDI File Play', 'fail', 'No suitable MIDI loading method found');
+                    addResult('MIDI File Play', 'info', `Available methods: ${Object.getOwnPropertyNames(tinySynth)}`);
+                }
+                
+            } catch (error) {
+                addResult('MIDI File Play', 'fail', `MIDI playback failed: ${error.message}`);
+                console.error('Detailed MIDI error:', error);
+            }
+        }
+        
+        function stopMidi() {
+            if (tinySynth && currentPlayback?.type === 'midi') {
+                try {
+                    if (typeof tinySynth.stop === 'function') {
+                        tinySynth.stop();
+                    } else if (typeof tinySynth.stopMIDI === 'function') {
+                        tinySynth.stopMIDI();
+                    }
+                    
+                    // Send all notes off
+                    for (let channel = 0; channel < 16; channel++) {
+                        tinySynth.send([0xB0 | channel, 123, 0], 0); // All notes off
+                    }
+                    
+                    addResult('MIDI Stop', 'pass', 'MIDI playback stopped');
+                    
+                    if (currentPlayback.url) {
+                        URL.revokeObjectURL(currentPlayback.url);
+                    }
+                    
+                    currentPlayback = null;
+                } catch (error) {
+                    addResult('MIDI Stop', 'fail', `Stop failed: ${error.message}`);
+                }
+            } else {
+                addResult('MIDI Stop', 'warn', 'No MIDI playback to stop');
+            }
+        }
+        
+        // ===== END MODULE-TEST.HTML FUNCTIONALITY =====
+        
         function updateLibraryStatus() {
             const status = document.getElementById('libraryStatus');
             const libs = {
@@ -728,8 +1237,8 @@
             
             status.innerHTML = Object.entries(libs)
                 .map(([name, loaded]) => 
-                    `<div class="lib-item" style="color: ${loaded ? '#000080' : '#800000'}">
-                        ${loaded ? '✓' : '✗'} ${name}
+                    `<div class="lib-item" style="color: ${loaded ? '#00ff00' : '#ff4444'}">
+                        ${name}: ${loaded ? '✓' : '✗'}
                     </div>`
                 )
                 .join('');
@@ -813,13 +1322,24 @@
         window.addEventListener('load', () => {
             setupAutoRefresh();
             
-            setTimeout(() => {
+            setTimeout(async () => {
                 updateLibraryStatus();
                 updateSystemOverview();
                 updatePerformanceMetrics();
+                updateResultsDisplay();
+                
+                // Initialize test audio context
+                addConsoleEntry('info', 'Initializing test audio context...');
+                await initTestAudioContext();
+                
+                // Auto-load file list
+                addConsoleEntry('info', 'Auto-loading music file list...');
+                await listFiles();
                 
                 // Run initial basic tests
                 runBasicTests();
+                
+                addConsoleEntry('info', 'Debug console ready for comprehensive testing');
             }, 1000);
         });
         
@@ -843,8 +1363,8 @@
             }
         });
         
-        console.log('💻 Enhanced Debug Console v2.0 loaded (Windows 98 Style)');
-        console.log('⌨ Keyboard shortcuts: Ctrl+R (run tests), Ctrl+S (export), Ctrl+C (clear)');
+        console.log('🔧 Enhanced Debug Console v2.0 loaded (CRT Terminal Mode)');
+        console.log('💡 Keyboard shortcuts: Ctrl+R (run tests), Ctrl+S (export), Ctrl+C (clear)');
     </script>
 </body>
 </html>
