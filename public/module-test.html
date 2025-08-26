@@ -91,10 +91,70 @@
     </div>
 
     <!-- Load libraries -->
-    <script src="/js/libopenmpt.js"></script>
+<script src="/js/libopenmpt.js"></script>
+<script>
+// Debug what libopenmpt.js actually provides
+console.log('After libopenmpt.js load:');
+console.log('- Module:', typeof Module);
+console.log('- libopenmpt:', typeof libopenmpt);
+console.log('- window.libopenmpt:', typeof window.libopenmpt);
+
+// Try to expose libopenmpt if it's nested
+if (typeof libopenmpt === 'undefined' && typeof Module !== 'undefined') {
+    console.log('libopenmpt not found globally, checking Module...');
+    if (Module.libopenmpt) {
+        window.libopenmpt = Module.libopenmpt;
+        console.log('Exposed Module.libopenmpt as global');
+    } else if (Module._libopenmpt) {
+        window.libopenmpt = Module._libopenmpt;
+        console.log('Exposed Module._libopenmpt as global');
+    } else {
+        // Sometimes we need to wait for Module to initialize
+        console.log('libopenmpt not immediately available in Module');
+        console.log('Module contents:', Object.keys(Module));
+    }
+}
+</script>
     <script src="/js/chiptune2.js"></script>
     <script src="/js/js-synthesizer.js"></script>
     <script src="/js/webaudio-tinysynth.js"></script>
+<script>
+console.log('=== LIBRARY LOADING DEBUG ===');
+console.log('libopenmpt:', typeof libopenmpt);
+console.log('Module:', typeof Module);
+console.log('ChiptuneJsConfig:', typeof ChiptuneJsConfig);
+console.log('ChiptuneJsPlayer:', typeof ChiptuneJsPlayer);
+</script>
+
+<script src="/js/libopenmpt.js"></script>
+<script src="/js/chiptune2.js"></script>
+<!-- Add this debug script right here: -->
+<script>
+console.log('=== LIBRARY DEBUG ===');
+console.log('typeof Module:', typeof Module);
+console.log('typeof libopenmpt:', typeof libopenmpt);
+
+if (typeof libopenmpt === 'undefined' && typeof Module !== 'undefined') {
+    console.log('libopenmpt undefined, trying to expose from Module...');
+    
+    // Try different ways OpenMPT might be exposed
+    if (Module.libopenmpt) {
+        window.libopenmpt = Module.libopenmpt;
+        console.log('✓ Exposed Module.libopenmpt as global');
+    } else if (Module._libopenmpt) {
+        window.libopenmpt = Module._libopenmpt;
+        console.log('✓ Exposed Module._libopenmpt as global');
+    } else {
+        // Sometimes the entire Module is the libopenmpt interface
+        window.libopenmpt = Module;
+        console.log('✓ Set libopenmpt = Module');
+    }
+    
+    // Verify it worked
+    console.log('After fix - typeof libopenmpt:', typeof libopenmpt);
+}
+</script>
+
 
     <script>
         let audioContext = null;
@@ -307,7 +367,29 @@
                 log(`Loading ${file.filename} with ChiptuneJS...`, 'info');
                 
                 const arrayBuffer = await testFileDownload();
-                
+                        console.log('=== BINARY DATA DEBUG ===');
+        console.log('ArrayBuffer size:', arrayBuffer.byteLength);
+        const uint8View = new Uint8Array(arrayBuffer);
+        console.log('First 16 bytes:', Array.from(uint8View.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+        console.log('XM signature check:', String.fromCharCode(...uint8View.slice(0, 17)));
+
+        // For XM files, should start with "Extended Module: "
+        const xmSignature = String.fromCharCode(...uint8View.slice(0, 17));
+        if (file.filename.toLowerCase().endsWith('.xm') && !xmSignature.startsWith('Extended Module')) {
+            console.error('XM file signature is wrong!', xmSignature);
+        }
+
+        // Try direct OpenMPT loading test
+        console.log('Attempting direct OpenMPT loading...');
+        try {
+            const moduleData = new Uint8Array(arrayBuffer);
+            const testModule = new Module.OpenmptModule(moduleData);
+            console.log('Direct OpenMPT loading SUCCESS!');
+            console.log('Module duration:', testModule.get_duration_seconds());
+            testModule.delete(); // Clean up
+        } catch (directError) {
+            console.error('Direct OpenMPT loading failed:', directError);
+        }
                 log('File downloaded, creating blob URL for ChiptuneJS...', 'info');
                 
                 // Create blob URL instead of passing ArrayBuffer directly
@@ -562,7 +644,7 @@
                 
                 log('Ready for testing. Use the buttons above to test each component.', 'info');
                 log('IMPORTANT: Test AudioContext first before testing other components!', 'info');
-                
+             
             }, 2000);
         });
     </script>
