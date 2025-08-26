@@ -362,13 +362,13 @@ class UIController {
                 const typeInfo = file.type ? file.type.toUpperCase() : 'UNKNOWN';
                 
                 return `
-                    <div class="file-item" data-index="${index}" onclick="uiController.selectTrack(${index})" title="${file.filename}">
-                        <div class="file-main">
+                    <div class="file-item" data-index="${index}" title="${file.filename}" style="cursor: pointer; padding: 8px; margin: 2px 0; border: 1px solid #004400; background: rgba(0,34,0,0.3);">
+                        <div class="file-main" onclick="uiController.selectTrack(${index})">
                             <span class="file-icon">${icon}</span>
                             <span class="file-name">${file.filename}</span>
                             <span class="file-size">(${sizeInfo})</span>
                         </div>
-                        <div class="file-meta">
+                        <div class="file-meta" style="font-size: 10px; color: #00aa00; margin-top: 2px;">
                             <span class="file-type">${typeInfo}</span>
                             ${file.modified ? `<span class="file-date">${new Date(file.modified).toLocaleDateString()}</span>` : ''}
                         </div>
@@ -403,8 +403,11 @@ class UIController {
     
     selectTrack(index) {
         try {
+            console.log(`Attempting to select track at index: ${index}`);
+            
             if (index < 0 || index >= this.playlist.length) {
-                console.warn(`Invalid track index: ${index}`);
+                console.warn(`Invalid track index: ${index}, playlist length: ${this.playlist.length}`);
+                this.showError(`Invalid track selection: ${index}`);
                 return;
             }
             
@@ -412,12 +415,14 @@ class UIController {
             this.currentIndex = index;
             this.currentTrack = this.playlist[index];
             
+            console.log(`Selected track: ${this.currentTrack.filename} (type: ${this.currentTrack.type})`);
+            
             // Update UI
             this.highlightTrack(index);
             this.updateTrackInfo();
             
             this.updateSystemStatus(`Selected: ${this.currentTrack.filename}`);
-            console.log(`✅ Track selected: ${this.currentTrack.filename}`);
+            console.log(`✅ Track selected successfully: ${this.currentTrack.filename}`);
             
         } catch (error) {
             console.error('Error selecting track:', error);
