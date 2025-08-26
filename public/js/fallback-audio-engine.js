@@ -432,32 +432,48 @@ class FallbackAudioEngine {
             }
             const arrayBuffer = await response.arrayBuffer();
             
-            // Create a blob URL for ChiptuneJS (similar to MIDI approach)
+            // Create a blob URL for ChiptuneJS
             const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
             const blobUrl = URL.createObjectURL(blob);
             
             const player = this.chiptunePlayer;
             
             if (player && typeof player.load === 'function') {
-                // Load the module
                 await new Promise((resolve, reject) => {
-                    // ChiptuneJS load method signature: load(input, callback)
-                    // where input can be a File object or URL string
-                    player.load(blobUrl, (error) => {
+                    player.load(blobUrl, (response) => {
                         // Clean up blob URL
                         URL.revokeObjectURL(blobUrl);
                         
-                        if (error) {
-                            reject(new Error(`ChiptuneJS load error: ${error}`));
-                            return;
-                        }
+                        console.log('ChiptuneJS callback response type:', typeof response);
+                        console.log('ChiptuneJS callback response:', response);
                         
-                        // Successfully loaded, now play
-                        try {
-                            player.play();
-                            resolve();
-                        } catch (playError) {
-                            reject(new Error(`ChiptuneJS play error: ${playError.message}`));
+                        // ChiptuneJS callback signature is callback(result) on success
+                        // If we get an ArrayBuffer, that means SUCCESS!
+                        if (response instanceof ArrayBuffer) {
+                            console.log('ChiptuneJS loaded successfully!');
+                            try {
+                                player.play();
+                                console.log('ChiptuneJS play() called successfully');
+                                resolve();
+                            } catch (playError) {
+                                reject(new Error(`ChiptuneJS play error: ${playError.message}`));
+                            }
+                        } else if (response && typeof response === 'object' && response.type === 'onxhr') {
+                            // This is a ChiptuneJS error object
+                            reject(new Error('ChiptuneJS XHR error'));
+                        } else if (response === null || response === undefined) {
+                            // Some versions might pass null/undefined on success before calling play
+                            try {
+                                player.play();
+                                console.log('ChiptuneJS play() called after null response');
+                                resolve();
+                            } catch (playError) {
+                                reject(new Error(`ChiptuneJS play error: ${playError.message}`));
+                            }
+                        } else {
+                            // Unknown response type - log it for debugging
+                            console.warn('Unknown ChiptuneJS response:', response);
+                            reject(new Error(`ChiptuneJS unknown response: ${response}`));
                         }
                     });
                 });
