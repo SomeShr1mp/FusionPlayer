@@ -310,7 +310,7 @@
                 
                 log('File downloaded, creating blob URL for ChiptuneJS...', 'info');
                 
-                // ✅ CRITICAL FIX: Create blob URL instead of passing ArrayBuffer directly
+                // Create blob URL instead of passing ArrayBuffer directly
                 const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
                 const blobUrl = URL.createObjectURL(blob);
                 
@@ -320,26 +320,45 @@
                 if (typeof chiptunePlayer.load === 'function') {
                     log('Using chiptunePlayer.load() method with blob URL...', 'info');
                     
-                    // Use callback-based approach (ChiptuneJS standard)
+                    // CORRECTED CALLBACK HANDLING:
+                    // ChiptuneJS calls callback(response) on success, not callback(error)
                     await new Promise((resolve, reject) => {
-                        chiptunePlayer.load(blobUrl, (error) => {
+                        chiptunePlayer.load(blobUrl, (response) => {
                             // Clean up blob URL
                             URL.revokeObjectURL(blobUrl);
                             
-                            if (error) {
-                                log(`ChiptuneJS load callback error: ${error}`, 'error');
-                                reject(new Error(`ChiptuneJS load error: ${error}`));
-                                return;
-                            }
+                            log(`ChiptuneJS callback response type: ${typeof response}`, 'info');
+                            log(`ChiptuneJS callback response: ${response}`, 'info');
                             
-                            log('ChiptuneJS load callback success, attempting to play...', 'success');
-                            try {
-                                chiptunePlayer.play();
-                                log('ChiptuneJS play() called successfully - you should hear music!', 'success');
-                                resolve();
-                            } catch (playError) {
-                                log(`ChiptuneJS play() error: ${playError.message}`, 'error');
-                                reject(playError);
+                            // If we get an ArrayBuffer, that means SUCCESS!
+                            if (response instanceof ArrayBuffer) {
+                                log('ChiptuneJS loaded successfully! (got ArrayBuffer)', 'success');
+                                try {
+                                    chiptunePlayer.play();
+                                    log('ChiptuneJS play() called successfully - YOU SHOULD HEAR MUSIC!', 'success');
+                                    resolve();
+                                } catch (playError) {
+                                    log(`ChiptuneJS play() error: ${playError.message}`, 'error');
+                                    reject(playError);
+                                }
+                            } else if (response && typeof response === 'object' && response.type === 'onxhr') {
+                                // This is a ChiptuneJS error object
+                                log(`ChiptuneJS XHR error`, 'error');
+                                reject(new Error('ChiptuneJS XHR error'));
+                            } else if (response === null || response === undefined) {
+                                // Some versions might pass null/undefined on success
+                                try {
+                                    chiptunePlayer.play();
+                                    log('ChiptuneJS play() called after null response - YOU SHOULD HEAR MUSIC!', 'success');
+                                    resolve();
+                                } catch (playError) {
+                                    log(`ChiptuneJS play() error: ${playError.message}`, 'error');
+                                    reject(playError);
+                                }
+                            } else {
+                                // Unknown response type
+                                log(`Unknown ChiptuneJS response: ${response}`, 'error');
+                                reject(new Error(`ChiptuneJS unknown response: ${response}`));
                             }
                         });
                     });
