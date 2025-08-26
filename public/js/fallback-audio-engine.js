@@ -126,7 +126,7 @@ class FallbackAudioEngine {
         
         // Wait for libraries to load with timeout
         let attempts = 0;
-        const maxAttempts = 50;
+        const maxAttempts = 30; // Reduced timeout to avoid hanging
         
         while (attempts < maxAttempts) {
             // Check for any available OpenMPT implementation
@@ -142,13 +142,32 @@ class FallbackAudioEngine {
         }
         
         if (attempts >= maxAttempts) {
-            throw new Error('OpenMPT libraries not found after waiting');
+            this.updateStatus('OpenMPT libraries not found - tracker files will not work');
+            console.warn('⚠️ OpenMPT libraries not found after waiting');
+            return; // Don't throw - continue without tracker support
         }
         
         // Try to initialize ChiptuneJS player
         if (typeof ChiptuneJsConfig !== 'undefined' && typeof ChiptuneJsPlayer !== 'undefined') {
             try {
                 this.updateStatus('Creating ChiptuneJS player...');
+                
+                // Check if OpenMPT WASM is actually available
+                let wasmWorking = false;
+                try {
+                    if (typeof Module !== 'undefined' && Module._openmpt_module_create_from_memory) {
+                        wasmWorking = true;
+                        console.log('✅ OpenMPT WASM functions detected');
+                    }
+                } catch (wasmError) {
+                    console.warn('⚠️ OpenMPT WASM check failed:', wasmError);
+                }
+                
+                if (!wasmWorking) {
+                    this.updateStatus('OpenMPT WASM not working - tracker files will not play');
+                    console.warn('⚠️ OpenMPT WASM not working - skipping ChiptuneJS player');
+                    return; // Don't throw - continue without tracker support
+                }
                 
                 // Create ChiptuneJS player with fallback context
                 this.chiptunePlayer = new ChiptuneJsPlayer(new ChiptuneJsConfig(-1, this.audioContext));
@@ -172,14 +191,17 @@ class FallbackAudioEngine {
             } catch (error) {
                 console.warn('ChiptuneJS player creation failed:', error);
                 this.chiptunePlayer = null;
-                throw error;
+                this.updateStatus('ChiptuneJS player failed - tracker files will not work');
+                // Don't throw - continue without tracker support
             }
         } else if (typeof Module !== 'undefined') {
             console.log('✅ Raw OpenMPT module available');
             this.modulePlayer = Module;
             this.updateStatus('Raw OpenMPT module ready ✓');
         } else {
-            throw new Error('No suitable OpenMPT implementation found');
+            this.updateStatus('No OpenMPT implementation available - tracker files will not work');
+            console.warn('⚠️ No suitable OpenMPT implementation found');
+            // Don't throw - continue without tracker support
         }
     }
     
@@ -290,6 +312,20 @@ class FallbackAudioEngine {
     }
     
     async playTrackerModule(url, trackData) {
+        // Check if we have any working tracker player
+        if (!this.chiptunePlayer && !this.modulePlayer) {
+            throw new Error('No tracker module player available - OpenMPT WASM loading failed');
+        }
+        
+        // Verify WASM is actually working
+        try {
+            if (typeof Module === 'undefined' || !Module._openmpt_module_create_from_memory) {
+                throw new Error('OpenMPT WASM module not functional - WASM loading failed');
+            }
+        } catch (wasmError) {
+            throw new Error(`OpenMPT WASM check failed: ${wasmError.message}. This is usually caused by server configuration issues with WASM files.`);
+        }
+        
         if (!this.chiptunePlayer) {
             throw new Error('ChiptuneJS player not available');
         }
@@ -307,10 +343,14 @@ class FallbackAudioEngine {
             
             // Try direct play method first
             if (typeof this.chiptunePlayer.play === 'function') {
-                this.chiptunePlayer.play(buffer);
-                this.currentPlayback = { type: 'chiptune', player: this.chiptunePlayer };
-                this.updateStatus('ChiptuneJS direct play successful ✓');
-                return;
+                try {
+                    this.chiptunePlayer.play(buffer);
+                    this.currentPlayback = { type: 'chiptune', player: this.chiptunePlayer };
+                    this.updateStatus('ChiptuneJS direct play successful ✓');
+                    return;
+                } catch (playError) {
+                    this.updateStatus(`Direct play failed: ${playError.message}, trying callback method...`);
+                }
             }
             
             // Try callback-based loading

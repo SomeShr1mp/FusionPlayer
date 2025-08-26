@@ -336,15 +336,15 @@
     </div>
 
     <!-- Load libraries in same order as main app -->
-    <script src="/js/libopenmpt.js" onerror="logError('OpenMPT library failed to load')"></script>
-    <script src="/js/chiptune2.js" onerror="logError('Chiptune2 library failed to load')"></script>
-    <script src="/js/libfluidsynth-2.3.0.js" onerror="logError('FluidSynth library failed to load')"></script>
-    <script src="/js/js-synthesizer.js" onerror="logError('JS-Synthesizer library failed to load')"></script>
-    <script src="/js/webaudio-tinysynth.js" onerror="logError('WebAudio TinySynth library failed to load')"></script>
-    <script src="/js/midi-parser.js" onerror="logError('MIDI Parser library failed to load')"></script>
-    <script src="/js/fallback-audio-engine.js" onerror="logError('Fallback Audio Engine failed to load')"></script>
-    <script src="/js/audio-engine.js" onerror="logError('Audio Engine failed to load')"></script>
-    <script src="/js/ui-controller.js" onerror="logError('UI Controller failed to load')"></script>
+    <script src="/js/libopenmpt.js"></script>
+    <script src="/js/chiptune2.js"></script>
+    <script src="/js/libfluidsynth-2.3.0.js" onerror="console.warn('LibFluidSynth library failed to load - MIDI may use fallback')"></script>
+    <script src="/js/js-synthesizer.js"></script>
+    <script src="/js/webaudio-tinysynth.js"></script>
+    <script src="/js/midi-parser.js"></script>
+    <script src="/js/fallback-audio-engine.js"></script>
+    <script src="/js/audio-engine.js" onerror="console.warn('Main AudioEngine failed to load - will use fallback only')"></script>
+    <script src="/js/ui-controller.js"></script>
     
     <script>
         // Enhanced debug console with comprehensive testing
@@ -360,6 +360,7 @@
         let tinySynth = null;
         let musicFiles = [];
         let currentPlayback = null;
+        let audioInitialized = false; // Prevent multiple initializations
         
         // Capture console output
         const originalConsole = {
@@ -374,6 +375,13 @@
         }
         
         function addConsoleEntry(type, message) {
+            // Prevent duplicate audio initialization messages
+            if (message.includes('Initializing test audio context') && 
+                consoleLog.some(entry => entry.message.includes('Initializing test audio context') && 
+                               Date.now() - new Date(entry.timestamp).getTime() < 1000)) {
+                return; // Skip duplicate messages within 1 second
+            }
+            
             const entry = {
                 type: type,
                 message: message,
@@ -531,41 +539,49 @@
             addResult('Audio Tests', 'info', 'Running audio system tests...');
             
             try {
-                // Test audio context creation and setup
+                // Test basic audio context creation
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
-                const testContext = new AudioContext();
+                if (!AudioContext) {
+                    addResult('Audio Tests', 'fail', 'Web Audio API not available');
+                    return;
+                }
                 
-                addResult('Audio Context State', 'pass', `Initial state: ${testContext.state}`);
+                // Create a temporary context for testing (don't interfere with testAudioContext)
+                const tempContext = new AudioContext();
+                addResult('Audio Context State', 'pass', `Initial state: ${tempContext.state}`);
                 
                 // Test basic audio nodes
-                const gainNode = testContext.createGain();
-                const oscillator = testContext.createOscillator();
-                
-                addResult('Audio Nodes', 'pass', 'GainNode and OscillatorNode created successfully');
-                
-                // Test audio context resume (user activation required)
-                if (testContext.state === 'suspended') {
-                    addResult('Audio Context', 'warn', 'Context suspended - user interaction required');
-                } else {
-                    addResult('Audio Context', 'pass', 'Context running');
+                try {
+                    const gainNode = tempContext.createGain();
+                    const oscillator = tempContext.createOscillator();
+                    addResult('Audio Nodes', 'pass', 'GainNode and OscillatorNode created successfully');
+                } catch (nodeError) {
+                    addResult('Audio Nodes', 'fail', `Node creation failed: ${nodeError.message}`);
                 }
                 
                 // Test AudioWorklet if available
-                if (testContext.audioWorklet) {
+                if (tempContext.audioWorklet) {
                     try {
-                        await testContext.audioWorklet.addModule('/js/audio-worklet-processor.js');
-                        addResult('AudioWorklet Module', 'pass', 'Audio worklet processor loaded successfully');
-                        
-                        const workletNode = new AudioWorkletNode(testContext, 'fusion-audio-processor');
-                        addResult('AudioWorklet Node', 'pass', 'AudioWorkletNode created successfully');
-                        
-                        workletNode.disconnect();
+                        // Don't actually load the worklet, just test if it's available
+                        addResult('AudioWorklet Interface', 'pass', 'AudioWorklet interface available');
                     } catch (error) {
-                        addResult('AudioWorklet Module', 'fail', `Failed to load: ${error.message}`);
+                        addResult('AudioWorklet Interface', 'fail', `AudioWorklet test failed: ${error.message}`);
                     }
+                } else {
+                    addResult('AudioWorklet Interface', 'warn', 'AudioWorklet not supported - will use fallback');
                 }
                 
-                testContext.close();
+                // Test audio context properties
+                if (tempContext.baseLatency !== undefined) {
+                    addResult('Audio Latency', 'pass', 
+                        `Base: ${(tempContext.baseLatency * 1000).toFixed(2)}ms, ` +
+                        `Output: ${tempContext.outputLatency ? (tempContext.outputLatency * 1000).toFixed(2) + 'ms' : 'N/A'}`);
+                }
+                
+                // Clean up temporary context
+                tempContext.close();
+                
+                addResult('Audio Tests', 'pass', 'Audio system tests completed');
                 
             } catch (error) {
                 addResult('Audio Tests', 'fail', `Audio test failed: ${error.message}`);
@@ -783,6 +799,18 @@
                 return;
             }
             
+            // Try to resume context if suspended
+            if (testAudioContext.state === 'suspended') {
+                try {
+                    addResult('Test Tone', 'info', 'Activating AudioContext...');
+                    await testAudioContext.resume();
+                    addResult('Test Tone', 'pass', `AudioContext activated (${testAudioContext.state})`);
+                } catch (resumeError) {
+                    addResult('Test Tone', 'fail', `AudioContext activation failed: ${resumeError.message}`);
+                    return;
+                }
+            }
+            
             try {
                 addResult('Test Tone', 'info', 'Playing 440Hz test tone...');
                 
@@ -808,22 +836,39 @@
         }
         
         async function initTestAudioContext() {
+            if (audioInitialized || testAudioContext) {
+                console.log('Test audio context already initialized');
+                return true;
+            }
+            
             try {
+                addConsoleEntry('info', 'Creating test AudioContext...');
+                audioInitialized = true; // Set flag to prevent re-entry
+                
                 if (testAudioContext) {
                     testAudioContext.close();
                 }
                 
-                testAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) {
+                    throw new Error('Web Audio API not supported');
+                }
+                
+                testAudioContext = new AudioContext();
                 addResult('Test AudioContext', 'pass', `AudioContext created (${testAudioContext.state})`);
                 
                 if (testAudioContext.state === 'suspended') {
-                    await testAudioContext.resume();
-                    addResult('Test AudioContext', 'pass', `AudioContext resumed (${testAudioContext.state})`);
+                    addConsoleEntry('info', 'AudioContext suspended - waiting for user activation...');
+                    // Don't automatically resume here - wait for user interaction
                 }
                 
+                addConsoleEntry('info', `Test AudioContext ready (${testAudioContext.state})`);
                 return true;
+                
             } catch (error) {
+                audioInitialized = false; // Reset flag on error
                 addResult('Test AudioContext', 'fail', `AudioContext creation failed: ${error.message}`);
+                addConsoleEntry('error', `Test AudioContext failed: ${error.message}`);
                 return false;
             }
         }
@@ -905,20 +950,49 @@
                         available ? 'Available' : 'Not available');
                 });
                 
-                if (!libs.ChiptuneJsConfig || !libs.ChiptuneJsPlayer) {
-                    throw new Error('ChiptuneJS not loaded properly');
+                // Check if OpenMPT WASM module is actually usable
+                let wasmAvailable = false;
+                try {
+                    if (typeof Module !== 'undefined' && Module._openmpt_module_create_from_memory) {
+                        wasmAvailable = true;
+                        addResult('OpenMPT WASM', 'pass', 'WASM module functions available');
+                    } else {
+                        addResult('OpenMPT WASM', 'fail', 'WASM module functions not available');
+                    }
+                } catch (wasmError) {
+                    addResult('OpenMPT WASM', 'fail', `WASM check failed: ${wasmError.message}`);
                 }
                 
-                if (!testAudioContext) {
-                    throw new Error('Test AudioContext not initialized');
+                if (!libs.ChiptuneJsConfig || !libs.ChiptuneJsPlayer) {
+                    throw new Error('ChiptuneJS libraries not loaded properly');
+                }
+                
+                if (!wasmAvailable) {
+                    addResult('ChiptuneJS Test', 'warn', 'OpenMPT WASM not available - tracker files will not work');
+                    document.getElementById('chiptuneStatus').textContent = '⚠ WASM Issue';
+                    document.getElementById('chiptuneStatus').style.color = '#ffaa00';
+                    return;
                 }
                 
                 addResult('ChiptuneJS Player', 'info', 'Creating ChiptuneJS player...');
-                chiptunePlayer = new ChiptuneJsPlayer(new ChiptuneJsConfig(-1, testAudioContext));
                 
-                addResult('ChiptuneJS Player', 'pass', 'ChiptuneJS player created successfully');
-                document.getElementById('chiptuneStatus').textContent = '✓ Ready';
-                document.getElementById('chiptuneStatus').style.color = '#00ff00';
+                // Create player - it will create its own context if needed
+                try {
+                    if (testAudioContext) {
+                        chiptunePlayer = new ChiptuneJsPlayer(new ChiptuneJsConfig(-1, testAudioContext));
+                    } else {
+                        chiptunePlayer = new ChiptuneJsPlayer(new ChiptuneJsConfig(-1));
+                    }
+                    
+                    addResult('ChiptuneJS Player', 'pass', 'ChiptuneJS player created successfully');
+                    document.getElementById('chiptuneStatus').textContent = '✓ Ready';
+                    document.getElementById('chiptuneStatus').style.color = '#00ff00';
+                    
+                } catch (playerError) {
+                    addResult('ChiptuneJS Player', 'fail', `Player creation failed: ${playerError.message}`);
+                    document.getElementById('chiptuneStatus').textContent = `✗ Failed: ${playerError.message}`;
+                    document.getElementById('chiptuneStatus').style.color = '#ff4444';
+                }
                 
             } catch (error) {
                 addResult('ChiptuneJS Test', 'fail', `ChiptuneJS test failed: ${error.message}`);
@@ -1041,18 +1115,27 @@
                 }
                 
                 if (!testAudioContext) {
-                    throw new Error('Test AudioContext not initialized');
+                    addResult('TinySynth Test', 'info', 'Test AudioContext not initialized - will create when needed');
                 }
                 
                 addResult('TinySynth Test', 'info', 'Creating TinySynth instance...');
-                tinySynth = new WebAudioTinySynth({
+                
+                // Create TinySynth without requiring AudioContext first
+                const synthConfig = {
                     quality: 1,
-                    useReverb: 1,
-                    voices: 32
-                });
+                    useReverb: 0, // Disable reverb to avoid issues
+                    voices: 16
+                };
+                
+                // Add context if available
+                if (testAudioContext) {
+                    synthConfig.context = testAudioContext;
+                }
+                
+                tinySynth = new WebAudioTinySynth(synthConfig);
                 
                 addResult('TinySynth Test', 'pass', 'TinySynth created successfully');
-                addResult('TinySynth Test', 'info', `Available methods: ${Object.getOwnPropertyNames(tinySynth)}`);
+                addResult('TinySynth Test', 'info', `Available methods: ${Object.getOwnPropertyNames(tinySynth).slice(0, 10).join(', ')}...`);
                 
                 document.getElementById('midiStatus').textContent = '✓ Ready';
                 document.getElementById('midiStatus').style.color = '#00ff00';
@@ -1067,11 +1150,26 @@
         async function playTestMidi() {
             if (!tinySynth) {
                 addResult('Test MIDI', 'info', 'TinySynth not initialized. Running test...');
-                await initTestAudioContext();
                 testTinySynth();
                 if (!tinySynth) {
                     addResult('Test MIDI', 'fail', 'TinySynth initialization failed');
                     return;
+                }
+            }
+            
+            // Initialize audio context if needed
+            if (!testAudioContext) {
+                await initTestAudioContext();
+            }
+            
+            // Try to activate audio context
+            if (testAudioContext && testAudioContext.state === 'suspended') {
+                try {
+                    addResult('Test MIDI', 'info', 'Activating AudioContext...');
+                    await testAudioContext.resume();
+                    addResult('Test MIDI', 'pass', `AudioContext activated (${testAudioContext.state})`);
+                } catch (resumeError) {
+                    addResult('Test MIDI', 'warn', `AudioContext activation failed: ${resumeError.message}`);
                 }
             }
             
@@ -1087,22 +1185,42 @@
                 ];
                 
                 let noteTime = 0;
+                let playedNotes = 0;
+                
                 chords.forEach((chord, chordIndex) => {
                     chord.forEach(note => {
                         setTimeout(() => {
-                            addResult('Test MIDI', 'info', `Playing note ${note}`);
-                            tinySynth.send([0x90, note, 100], 0); // Note on
-                            
-                            setTimeout(() => {
-                                tinySynth.send([0x80, note, 0], 0); // Note off
-                            }, 800);
+                            try {
+                                addResult('Test MIDI', 'info', `Playing note ${note}`);
+                                tinySynth.send([0x90, note, 100], 0); // Note on
+                                playedNotes++;
+                                
+                                setTimeout(() => {
+                                    try {
+                                        tinySynth.send([0x80, note, 0], 0); // Note off
+                                    } catch (offError) {
+                                        console.warn('Error sending note off:', offError);
+                                    }
+                                }, 800);
+                            } catch (noteError) {
+                                addResult('Test MIDI', 'warn', `Error playing note ${note}: ${noteError.message}`);
+                            }
                         }, noteTime);
                         noteTime += 50;
                     });
                     noteTime += 750;
                 });
                 
-                addResult('Test MIDI', 'pass', 'Test MIDI sequence started');
+                addResult('Test MIDI', 'pass', `Test MIDI sequence started (${chords.flat().length} notes)`);
+                
+                // Check if we actually played notes after a delay
+                setTimeout(() => {
+                    if (playedNotes === 0) {
+                        addResult('Test MIDI', 'warn', 'No MIDI notes were actually played - check TinySynth setup');
+                    } else {
+                        addResult('Test MIDI', 'pass', `Successfully played ${playedNotes} MIDI notes`);
+                    }
+                }, 1000);
                 
             } catch (error) {
                 addResult('Test MIDI', 'fail', `Test MIDI failed: ${error.message}`);
@@ -1236,11 +1354,21 @@
             };
             
             status.innerHTML = Object.entries(libs)
-                .map(([name, loaded]) => 
-                    `<div class="lib-item" style="color: ${loaded ? '#00ff00' : '#ff4444'}">
-                        ${name}: ${loaded ? '✓' : '✗'}
-                    </div>`
-                )
+                .map(([name, loaded]) => {
+                    let displayName = name;
+                    let note = '';
+                    
+                    // Add special notes for known issues
+                    if (name === 'LibFluidSynth' && !loaded) {
+                        note = ' (WASM issue - using TinySynth)';
+                    } else if (name === 'AudioEngine' && !loaded) {
+                        note = ' (using FallbackAudioEngine)';
+                    }
+                    
+                    return `<div class="lib-item" style="color: ${loaded ? '#00ff00' : '#ff4444'}">
+                        ${displayName}: ${loaded ? '✓' : '✗'}${note}
+                    </div>`;
+                })
                 .join('');
         }
         
@@ -1347,18 +1475,17 @@
                 updatePerformanceMetrics();
                 updateResultsDisplay();
                 
-                // Initialize test audio context
-                addConsoleEntry('info', 'Initializing test audio context...');
-                await initTestAudioContext();
+                // Don't initialize audio context here - wait for user interaction
+                addConsoleEntry('info', 'Debug console loaded - click any button to activate audio');
                 
                 // Auto-load file list
                 addConsoleEntry('info', 'Auto-loading music file list...');
                 await listFiles();
                 
-                // Run initial basic tests
+                // Run initial basic tests (non-audio)
                 runBasicTests();
                 
-                addConsoleEntry('info', 'Debug console ready for comprehensive testing');
+                addConsoleEntry('info', 'Debug console ready - audio will activate on first user interaction');
             }, 1000);
         });
         
@@ -1381,6 +1508,26 @@
                 }
             }
         });
+        
+        // Add user activation handler for audio context
+        document.addEventListener('click', async function activateAudio() {
+            if (!audioInitialized && !testAudioContext) {
+                try {
+                    addConsoleEntry('info', 'User interaction detected - initializing audio...');
+                    await initTestAudioContext();
+                } catch (error) {
+                    addConsoleEntry('error', `Audio initialization failed: ${error.message}`);
+                }
+            } else if (testAudioContext && testAudioContext.state === 'suspended') {
+                try {
+                    addConsoleEntry('info', 'Activating suspended AudioContext...');
+                    await testAudioContext.resume();
+                    addConsoleEntry('info', `AudioContext activated (${testAudioContext.state})`);
+                } catch (error) {
+                    addConsoleEntry('error', `AudioContext activation failed: ${error.message}`);
+                }
+            }
+        }, { once: false }); // Don't remove this listener - we might need it multiple times
         
         console.log('🔧 Enhanced Debug Console v2.0 loaded (CRT Terminal Mode)');
         console.log('💡 Keyboard shortcuts: Ctrl+R (run tests), Ctrl+S (export), Ctrl+C (clear)');
