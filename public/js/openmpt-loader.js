@@ -1,181 +1,138 @@
 // OpenMPT Loader - Fixes the global variable issue between libopenmpt and chiptune2
-// This file MUST be loaded BEFORE chiptune2.js but AFTER libopenmpt.js
+// This file MUST be loaded AFTER libopenmpt.js but BEFORE chiptune2.js
 
 (function() {
     'use strict';
     
-    console.log('[OpenMPT Loader] Initializing...');
+    console.log('[OpenMPT Loader] Initializing helper functions...');
     
-    // Store original Module if it exists
-    let originalModule = null;
-    if (typeof Module !== 'undefined') {
-        originalModule = Module;
-        console.log('[OpenMPT Loader] Found existing Module object');
+    // Check if Module exists (from libopenmpt.js)
+    if (typeof Module === 'undefined') {
+        console.error('[OpenMPT Loader] ERROR: Module not found - libopenmpt.js must be loaded first!');
+        return;
     }
     
-    // Configuration for Emscripten Module
-    const moduleConfig = {
-        preRun: [],
-        postRun: [],
-        print: function(text) {
-            console.log('[OpenMPT]', text);
-        },
-        printErr: function(text) {
-            console.error('[OpenMPT Error]', text);
-        },
-        locateFile: function(filename) {
-            // Help the module find its .mem file
-            if (filename.endsWith('.mem') || filename.endsWith('.wasm')) {
-                console.log('[OpenMPT Loader] Locating file:', filename);
-                return '/js/' + filename;
-            }
-            return filename;
-        },
-        onRuntimeInitialized: function() {
-            console.log('[OpenMPT Loader] Runtime initialized');
+    // Add UTF8ToString if not available
+    if (typeof UTF8ToString === 'undefined') {
+        window.UTF8ToString = function(ptr) {
+            if (!ptr) return '';
             
-            // CRITICAL: Set up the global libopenmpt object that chiptune2.js expects
-            if (typeof Module !== 'undefined') {
-                window.libopenmpt = Module;
-                console.log('[OpenMPT Loader] Set window.libopenmpt = Module');
-                
-                // Verify critical functions exist
-                const criticalFunctions = [
-                    '_openmpt_module_create_from_memory',
-                    '_openmpt_module_read_float_stereo', 
-                    '_openmpt_module_destroy',
-                    '_openmpt_module_get_duration_seconds',
-                    '_openmpt_module_get_position_seconds',
-                    '_malloc',
-                    '_free'
-                ];
-                
-                let allFunctionsAvailable = true;
-                for (const func of criticalFunctions) {
-                    if (typeof Module[func] !== 'function') {
-                        console.error('[OpenMPT Loader] Missing critical function:', func);
-                        allFunctionsAvailable = false;
+            let u8 = Module.HEAPU8;
+            let str = '';
+            let i = ptr;
+            
+            while (u8[i]) {
+                let c = u8[i++];
+                if (c < 128) {
+                    str += String.fromCharCode(c);
+                } else if ((c & 0xE0) === 0xC0) {
+                    str += String.fromCharCode(((c & 0x1F) << 6) | (u8[i++] & 0x3F));
+                } else if ((c & 0xF0) === 0xE0) {
+                    str += String.fromCharCode(((c & 0x0F) << 12) | ((u8[i++] & 0x3F) << 6) | (u8[i++] & 0x3F));
+                } else if ((c & 0xF8) === 0xF0) {
+                    let codePoint = ((c & 0x07) << 18) | ((u8[i++] & 0x3F) << 12) | ((u8[i++] & 0x3F) << 6) | (u8[i++] & 0x3F);
+                    // Handle surrogate pairs for codepoints > 0xFFFF
+                    if (codePoint > 0xFFFF) {
+                        codePoint -= 0x10000;
+                        str += String.fromCharCode(0xD800 | (codePoint >> 10));
+                        str += String.fromCharCode(0xDC00 | (codePoint & 0x3FF));
+                    } else {
+                        str += String.fromCharCode(codePoint);
                     }
                 }
-                
-                if (allFunctionsAvailable) {
-                    console.log('[OpenMPT Loader] ✅ All critical functions available');
-                    
-                    // Fire a custom event to signal that OpenMPT is ready
-                    const event = new CustomEvent('openmptReady', { 
-                        detail: { module: Module, version: 'libopenmpt' }
-                    });
-                    window.dispatchEvent(event);
-                } else {
-                    console.error('[OpenMPT Loader] ❌ Some critical functions are missing');
-                }
-                
-                // Also ensure UTF8ToString and writeAsciiToMemory are available globally
-                if (Module.UTF8ToString && !window.UTF8ToString) {
-                    window.UTF8ToString = Module.UTF8ToString;
-                    console.log('[OpenMPT Loader] Exposed UTF8ToString globally');
-                }
-                
-                if (Module.writeAsciiToMemory && !window.writeAsciiToMemory) {
-                    window.writeAsciiToMemory = Module.writeAsciiToMemory;
-                    console.log('[OpenMPT Loader] Exposed writeAsciiToMemory globally');
-                }
             }
-        },
-        // Memory settings for better compatibility
-        INITIAL_MEMORY: 33554432, // 32MB
-        ALLOW_MEMORY_GROWTH: 1,
-        MAXIMUM_MEMORY: 536870912, // 512MB max
-        // Disable some features that might cause issues
-        ENVIRONMENT: 'web',
-        // Ensure WASM is preferred over asm.js
-        wasmBinary: undefined // Let it load from file
-    };
-    
-    // Set Module config globally before libopenmpt.js loads
-    if (typeof Module === 'undefined') {
-        console.log('[OpenMPT Loader] Creating Module configuration');
-        window.Module = moduleConfig;
-    } else {
-        console.log('[OpenMPT Loader] Extending existing Module configuration');
-        // Merge configurations
-        for (let key in moduleConfig) {
-            if (!Module.hasOwnProperty(key)) {
-                Module[key] = moduleConfig[key];
-            }
-        }
-        
-        // Ensure callbacks are chained properly
-        const originalOnRuntimeInitialized = Module.onRuntimeInitialized;
-        Module.onRuntimeInitialized = function() {
-            if (originalOnRuntimeInitialized) {
-                originalOnRuntimeInitialized.call(this);
-            }
-            moduleConfig.onRuntimeInitialized.call(this);
+            
+            return str;
         };
+        console.log('[OpenMPT Loader] UTF8ToString helper added');
     }
     
-    // Also handle the case where libopenmpt might already be loaded
-    if (typeof Module !== 'undefined' && Module._openmpt_module_create_from_memory) {
-        console.log('[OpenMPT Loader] Module already loaded, setting up libopenmpt now');
+    // Add writeAsciiToMemory if not available
+    if (typeof writeAsciiToMemory === 'undefined') {
+        window.writeAsciiToMemory = function(str, buffer, dontAddNull) {
+            for (let i = 0; i < str.length; ++i) {
+                Module.HEAP8[buffer + i] = str.charCodeAt(i);
+            }
+            if (!dontAddNull) {
+                Module.HEAP8[buffer + str.length] = 0;
+            }
+        };
+        console.log('[OpenMPT Loader] writeAsciiToMemory helper added');
+    }
+    
+    // Make sure libopenmpt is globally accessible
+    if (typeof libopenmpt === 'undefined' && typeof Module !== 'undefined') {
         window.libopenmpt = Module;
-        
-        // Ensure helper functions are available
-        if (Module.UTF8ToString && !window.UTF8ToString) {
-            window.UTF8ToString = Module.UTF8ToString;
-        }
-        if (Module.writeAsciiToMemory && !window.writeAsciiToMemory) {
-            window.writeAsciiToMemory = Module.writeAsciiToMemory;
-        }
-        
-        // Fire ready event
-        const event = new CustomEvent('openmptReady', { 
-            detail: { module: Module, version: 'libopenmpt' }
-        });
-        window.dispatchEvent(event);
+        console.log('[OpenMPT Loader] libopenmpt global reference created');
     }
     
-    console.log('[OpenMPT Loader] Configuration complete');
-})();
-
-// Additional helper to verify OpenMPT status
-window.checkOpenMPTStatus = function() {
-    const status = {
+    // Add Module to libopenmpt if not present
+    if (typeof libopenmpt !== 'undefined' && !libopenmpt._openmpt_module_create_from_memory) {
+        // Copy Module functions to libopenmpt
+        const functionsToCopy = [
+            '_openmpt_module_create_from_memory',
+            '_openmpt_module_create_from_memory2',
+            '_openmpt_module_destroy',
+            '_openmpt_module_read_float_stereo',
+            '_openmpt_module_read_interleaved_float_stereo',
+            '_openmpt_module_get_duration_seconds',
+            '_openmpt_module_get_position_seconds',
+            '_openmpt_module_set_position_seconds',
+            '_openmpt_module_get_metadata',
+            '_openmpt_module_get_metadata_keys',
+            '_openmpt_module_set_repeat_count',
+            '_openmpt_module_set_render_param',
+            '_openmpt_module_get_current_row',
+            '_openmpt_module_get_current_pattern',
+            '_openmpt_module_get_current_order',
+            '_openmpt_module_get_num_orders',
+            '_openmpt_module_get_num_patterns',
+            '_openmpt_module_ctl_set',
+            '_malloc',
+            '_free'
+        ];
+        
+        functionsToCopy.forEach(func => {
+            if (Module[func] && !libopenmpt[func]) {
+                libopenmpt[func] = Module[func];
+            }
+        });
+        
+        // Copy HEAP arrays
+        ['HEAP8', 'HEAPU8', 'HEAP16', 'HEAPU16', 'HEAP32', 'HEAPU32', 'HEAPF32', 'HEAPF64'].forEach(heap => {
+            if (Module[heap] && !libopenmpt[heap]) {
+                libopenmpt[heap] = Module[heap];
+            }
+        });
+        
+        console.log('[OpenMPT Loader] Module functions copied to libopenmpt');
+    }
+    
+    // Ensure ccall is available
+    if (typeof libopenmpt !== 'undefined' && !libopenmpt.ccall && Module.ccall) {
+        libopenmpt.ccall = Module.ccall;
+        console.log('[OpenMPT Loader] ccall added to libopenmpt');
+    }
+    
+    // Diagnostic check
+    const checkStatus = {
         moduleExists: typeof Module !== 'undefined',
         libopenmptExists: typeof libopenmpt !== 'undefined',
-        hasCreateFunction: false,
-        hasReadFunction: false,
-        hasDestroyFunction: false,
-        hasMalloc: false,
-        hasFree: false,
-        hasUTF8ToString: false,
-        hasWriteAscii: false
+        hasCreateFunction: !!(window.libopenmpt && window.libopenmpt._openmpt_module_create_from_memory),
+        hasReadFunction: !!(window.libopenmpt && window.libopenmpt._openmpt_module_read_float_stereo),
+        hasDestroyFunction: !!(window.libopenmpt && window.libopenmpt._openmpt_module_destroy),
+        hasMalloc: !!(window.libopenmpt && window.libopenmpt._malloc),
+        hasFree: !!(window.libopenmpt && window.libopenmpt._free),
+        hasUTF8ToString: typeof UTF8ToString !== 'undefined',
+        hasWriteAscii: typeof writeAsciiToMemory !== 'undefined'
     };
     
-    if (typeof Module !== 'undefined') {
-        status.hasCreateFunction = typeof Module._openmpt_module_create_from_memory === 'function';
-        status.hasReadFunction = typeof Module._openmpt_module_read_float_stereo === 'function';
-        status.hasDestroyFunction = typeof Module._openmpt_module_destroy === 'function';
-        status.hasMalloc = typeof Module._malloc === 'function';
-        status.hasFree = typeof Module._free === 'function';
-        status.hasUTF8ToString = typeof Module.UTF8ToString === 'function';
-        status.hasWriteAscii = typeof Module.writeAsciiToMemory === 'function';
-    }
+    const allReady = Object.values(checkStatus).every(v => v === true);
     
-    if (typeof libopenmpt !== 'undefined') {
-        // Double-check libopenmpt has the same functions
-        if (!status.hasCreateFunction) {
-            status.hasCreateFunction = typeof libopenmpt._openmpt_module_create_from_memory === 'function';
-        }
-    }
+    console.log('[OpenMPT Loader] Status check:', checkStatus);
+    console.log('[OpenMPT Loader] Ready:', allReady ? 'YES' : 'NO');
     
-    const isReady = status.moduleExists && status.libopenmptExists && 
-                    status.hasCreateFunction && status.hasReadFunction && 
-                    status.hasDestroyFunction && status.hasMalloc && status.hasFree;
+    // Set a flag to indicate loader is ready
+    window.OpenMPTLoaderReady = allReady;
     
-    return {
-        ...status,
-        ready: isReady,
-        message: isReady ? 'OpenMPT is ready' : 'OpenMPT is not fully loaded'
-    };
-};
+})();
