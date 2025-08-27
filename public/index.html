@@ -6,8 +6,6 @@
     <title>FUSION MUSIC PLAYER v2.0</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    
-
 </head>
 <body>
     <div class="container">
@@ -73,43 +71,136 @@
         <div class="system-info">
             <h4>▶ SYSTEM STATUS</h4>
             <div id="systemStatus">Initializing audio systems...</div>
+            <div id="wasmStatus" style="font-size: 10px; color: #888; margin-top: 5px;"></div>
         </div>
     </div>
 
-    <!-- Audio Libraries - Load in optimized order -->
+    <!-- CRITICAL: Load scripts in the correct order -->
+    
+    <!-- Step 1: Load OpenMPT WASM module -->
     <script src="/js/libopenmpt.js"></script>
+    
+    <!-- Step 2: Load OpenMPT Loader to fix global variables -->
+    <script src="/js/openmpt-loader.js"></script>
+    
+    <!-- Step 3: Load ChiptuneJS (requires libopenmpt global) -->
     <script src="/js/chiptune2.js"></script>
-    <script src="/js/libfluidsynth-2.3.0.js"></script>
-    <script src="/js/js-synthesizer.js"></script>
+    
+    <!-- Step 4: Load MIDI synthesizers -->
     <script src="/js/webaudio-tinysynth.js"></script>
+    
+    <!-- Optional: FluidSynth (may fail, that's okay) -->
+    <script src="/js/libfluidsynth-2.3.0.js" onerror="console.warn('FluidSynth not available')"></script>
+    <script src="/js/js-synthesizer.js" onerror="console.warn('JS-Synthesizer not available')"></script>
+    
+    <!-- Step 5: Load MIDI parser -->
     <script src="/js/midi-parser.js"></script>
     
-    <!-- Core Application Files -->
+    <!-- Step 6: Load audio engines -->
     <script src="/js/fallback-audio-engine.js"></script>
     <script src="/js/audio-engine.js"></script>
+    
+    <!-- Step 7: Load UI controller -->
     <script src="/js/ui-controller.js"></script>
     
     <script>
-        // Enhanced initialization with improved error handling (keeping original UI)
+        // Enhanced initialization with WASM verification
         let player = null;
-        let uiController = null; // Make globally available for onclick handlers
+        let uiController = null;
+        
+        // Check WASM status
+        async function checkWASMStatus() {
+            try {
+                const response = await fetch('/api/wasm-check');
+                const status = await response.json();
+                
+                const wasmStatusEl = document.getElementById('wasmStatus');
+                if (wasmStatusEl) {
+                    const fileStatus = [];
+                    for (const [file, info] of Object.entries(status.files)) {
+                        if (info && info.exists) {
+                            fileStatus.push(`✓ ${file}`);
+                        } else {
+                            fileStatus.push(`✗ ${file}`);
+                        }
+                    }
+                    wasmStatusEl.textContent = 'WASM: ' + fileStatus.join(' | ');
+                }
+                
+                return status;
+            } catch (error) {
+                console.warn('WASM check failed:', error);
+                return null;
+            }
+        }
+        
+        // Wait for OpenMPT to be ready
+        function waitForOpenMPT() {
+            return new Promise((resolve) => {
+                let attempts = 0;
+                const maxAttempts = 100; // 10 seconds
+                
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    
+                    // Check if OpenMPT is ready
+                    if (window.checkOpenMPTStatus) {
+                        const status = window.checkOpenMPTStatus();
+                        console.log('OpenMPT Status:', status);
+                        
+                        if (status.ready) {
+                            clearInterval(checkInterval);
+                            resolve(true);
+                            return;
+                        }
+                    }
+                    
+                    // Also check for the ready event
+                    if (typeof libopenmpt !== 'undefined' && libopenmpt._openmpt_module_create_from_memory) {
+                        clearInterval(checkInterval);
+                        resolve(true);
+                        return;
+                    }
+                    
+                    if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                        console.warn('OpenMPT loading timeout');
+                        resolve(false);
+                    }
+                }, 100);
+            });
+        }
         
         async function initializePlayer() {
             try {
                 console.log('🎵 Fusion Music Player v2.0 - Initializing...');
                 
+                // Check WASM status first
+                const wasmStatus = await checkWASMStatus();
+                console.log('WASM Status:', wasmStatus);
+                
+                // Wait for OpenMPT to be ready
+                const openmptReady = await waitForOpenMPT();
+                if (!openmptReady) {
+                    console.warn('⚠️ OpenMPT not fully loaded - tracker files may not work');
+                    const systemStatus = document.getElementById('systemStatus');
+                    if (systemStatus) {
+                        systemStatus.textContent = '⚠️ OpenMPT not loaded - tracker files won\'t work';
+                        systemStatus.style.color = '#ffaa00';
+                    }
+                }
+                
                 // Initialize UI Controller first
                 uiController = new UIController();
                 await uiController.initialize();
                 
-                // Make uiController globally available for onclick handlers
+                // Make uiController globally available
                 window.uiController = uiController;
                 
-                // Initialize Audio Engine (with automatic fallback detection)
+                // Initialize Audio Engine
                 let audioEngine;
-                const forceFallback = localStorage.getItem('fusionForcesFallback') === 'true';
+                let engineType = '';
                 
-                // Check if we have the required classes available
                 const hasMainAudioEngine = typeof AudioEngine !== 'undefined';
                 const hasFallbackAudioEngine = typeof FallbackAudioEngine !== 'undefined';
                 
@@ -117,60 +208,34 @@
                 console.log(`FallbackAudioEngine available: ${hasFallbackAudioEngine}`);
                 
                 if (!hasMainAudioEngine && !hasFallbackAudioEngine) {
-                    throw new Error('No audio engines available - check if audio-engine.js and fallback-audio-engine.js are loading properly');
+                    throw new Error('No audio engines available');
                 }
                 
-                let audioEngine;
-                let engineType = '';
-                
-                if (forceFallback || !hasMainAudioEngine) {
-                    if (hasFallbackAudioEngine) {
-                        console.log('🔄 Using Fallback Audio Engine');
-                        uiController.updateSystemStatus('Using Fallback Audio Engine...');
-                        audioEngine = new FallbackAudioEngine();
-                        engineType = 'Fallback';
-                    } else {
-                        throw new Error('FallbackAudioEngine not available');
-                    }
-                } else {
-                    // Try main AudioEngine first, fall back if it fails
+                // Try main engine first, fallback if needed
+                if (hasMainAudioEngine) {
                     try {
                         console.log('🚀 Attempting Advanced Audio Engine');
                         uiController.updateSystemStatus('Initializing Advanced Audio Engine...');
                         audioEngine = new AudioEngine();
+                        await audioEngine.initialize();
                         engineType = 'Advanced';
                     } catch (mainError) {
-                        console.warn('Main AudioEngine failed, trying fallback:', mainError);
+                        console.warn('Main AudioEngine failed:', mainError);
                         if (hasFallbackAudioEngine) {
                             console.log('🔄 Falling back to Fallback Audio Engine');
-                            uiController.updateSystemStatus('Falling back to compatibility mode...');
+                            uiController.updateSystemStatus('Using fallback engine...');
                             audioEngine = new FallbackAudioEngine();
+                            await audioEngine.initialize();
                             engineType = 'Fallback';
                         } else {
-                            throw new Error('No audio engine available');
+                            throw mainError;
                         }
                     }
-                }
-                
-                try {
+                } else {
+                    console.log('🔄 Using Fallback Audio Engine');
+                    audioEngine = new FallbackAudioEngine();
                     await audioEngine.initialize();
-                } catch (initError) {
-                    // If initialization fails, try the other engine
-                    if (engineType === 'Advanced' && hasFallbackAudioEngine) {
-                        console.warn('Advanced engine initialization failed, trying fallback:', initError);
-                        uiController.updateSystemStatus('Advanced engine failed, trying fallback...');
-                        audioEngine = new FallbackAudioEngine();
-                        await audioEngine.initialize();
-                        engineType = 'Fallback';
-                    } else if (engineType === 'Fallback' && hasMainAudioEngine && !forceFallback) {
-                        console.warn('Fallback engine initialization failed, trying advanced:', initError);
-                        uiController.updateSystemStatus('Fallback engine failed, trying advanced...');
-                        audioEngine = new AudioEngine();
-                        await audioEngine.initialize();
-                        engineType = 'Advanced';
-                    } else {
-                        throw initError; // Re-throw if we can't try anything else
-                    }
+                    engineType = 'Fallback';
                 }
                 
                 // Connect UI and Audio Engine
@@ -187,51 +252,39 @@
                 window.player = player;
                 
                 const mode = audioEngine.fallbackMode ? 'Fallback' : 'AudioWorklet';
-                let statusMsg = `🎵 Fusion Player v2.0 ready (${mode} mode)`;
-                
-                // Add any warnings about missing features
-                const warnings = [];
-                if (typeof Module === 'undefined' || !Module._openmpt_module_create_from_memory) {
-                    warnings.push('Tracker files may not work (OpenMPT WASM issue)');
-                }
-                if (typeof LibFluidSynth === 'undefined') {
-                    warnings.push('Using TinySynth for MIDI (FluidSynth WASM issue)');
-                }
-                
-                if (warnings.length > 0) {
-                    statusMsg += ` - ⚠️ ${warnings.join(', ')}`;
-                }
+                const statusMsg = `🎵 Fusion Player v2.0 ready (${mode} mode)`;
                 
                 uiController.updateSystemStatus(statusMsg);
-                
                 console.log('✅ Fusion Music Player v2.0 ready');
-                if (warnings.length > 0) {
-                    console.log('⚠️ Warnings:', warnings.join(', '));
-                }
                 
             } catch (error) {
                 console.error('❌ Player initialization failed:', error);
                 
-                // Show error in system status
                 const systemStatus = document.getElementById('systemStatus');
                 if (systemStatus) {
                     systemStatus.textContent = 'ERROR: ' + error.message;
                     systemStatus.style.color = '#ff4444';
                 }
                 
-                // If UI controller exists, use it to show error
                 if (uiController) {
                     uiController.showError('Initialization failed: ' + error.message);
-                } else if (window.uiController) {
-                    window.uiController.showError('Initialization failed: ' + error.message);
                 }
             }
         }
         
+        // Listen for OpenMPT ready event
+        window.addEventListener('openmptReady', (event) => {
+            console.log('✅ OpenMPT Ready Event received:', event.detail);
+            const wasmStatusEl = document.getElementById('wasmStatus');
+            if (wasmStatusEl) {
+                wasmStatusEl.textContent = 'OpenMPT WASM: Ready ✓';
+                wasmStatusEl.style.color = '#00ff00';
+            }
+        });
+        
         // Initialize when page loads
         window.addEventListener('load', () => {
-            // Add a small delay to ensure all scripts are loaded
-            setTimeout(initializePlayer, 200);
+            setTimeout(initializePlayer, 500);
         });
         
         // User activation for audio context
@@ -241,17 +294,15 @@
                     try {
                         await player.audioEngine.audioContext.resume();
                         console.log('🔊 Audio context activated');
-                        player.audioEngine.updateStatus('Audio context activated - ready to play');
                     } catch (error) {
                         console.error('Failed to activate audio context:', error);
                     }
                 }
             }
-            // Remove this listener after first activation
             document.removeEventListener('click', activateAudio);
         });
         
-        // Basic keyboard shortcuts (keeping original functionality)
+        // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (!player || !player.uiController) return;
             

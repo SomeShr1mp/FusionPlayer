@@ -28,35 +28,121 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p /app/public/js /app/public/css /app/public/soundfonts /app/public/music /app/logs
 
-# Download audio libraries with error handling
+# Download OpenMPT/chiptune2.js with proper WASM support
 RUN set -e && \
-    echo "Downloading chiptune2.js..." && \
+    echo "Downloading OpenMPT/chiptune2.js..." && \
     curl -L -f -o /app/public/js/libopenmpt.js \
     https://cdn.jsdelivr.net/gh/deskjet/chiptune2.js@master/libopenmpt.js && \
     curl -L -f -o /app/public/js/libopenmpt.js.mem \
     https://cdn.jsdelivr.net/gh/deskjet/chiptune2.js@master/libopenmpt.js.mem && \
     curl -L -f -o /app/public/js/chiptune2.js \
     https://cdn.jsdelivr.net/gh/deskjet/chiptune2.js@master/chiptune2.js && \
-    echo "Chiptune2.js downloaded successfully"
+    echo "OpenMPT/chiptune2.js downloaded successfully"
 
-# Download js-synthesizer with fallback
-RUN set -e && \
-    echo "Downloading js-synthesizer..." && \
-    (curl -L -f -o /app/public/js/libfluidsynth-2.3.0.js \
-    https://cdn.jsdelivr.net/npm/js-synthesizer@1.8.5/externals/libfluidsynth-2.3.0.js && \
-    curl -L -f -o /app/public/js/js-synthesizer.js \
-    https://cdn.jsdelivr.net/npm/js-synthesizer@1.8.5/dist/js-synthesizer.js) || \
-    echo "JS-Synthesizer download failed, will use fallback"
+# Create the OpenMPT loader script
+RUN cat > /app/public/js/openmpt-loader.js << 'EOF'
+// OpenMPT Loader - Fixes the global variable issue between libopenmpt and chiptune2
+(function() {
+    'use strict';
+    console.log('[OpenMPT Loader] Initializing...');
+    
+    const moduleConfig = {
+        preRun: [],
+        postRun: [],
+        print: function(text) { console.log('[OpenMPT]', text); },
+        printErr: function(text) { console.error('[OpenMPT Error]', text); },
+        locateFile: function(filename) {
+            if (filename.endsWith('.mem') || filename.endsWith('.wasm')) {
+                console.log('[OpenMPT Loader] Locating file:', filename);
+                return '/js/' + filename;
+            }
+            return filename;
+        },
+        onRuntimeInitialized: function() {
+            console.log('[OpenMPT Loader] Runtime initialized');
+            if (typeof Module !== 'undefined') {
+                window.libopenmpt = Module;
+                console.log('[OpenMPT Loader] Set window.libopenmpt = Module');
+                
+                if (Module.UTF8ToString && !window.UTF8ToString) {
+                    window.UTF8ToString = Module.UTF8ToString;
+                }
+                if (Module.writeAsciiToMemory && !window.writeAsciiToMemory) {
+                    window.writeAsciiToMemory = Module.writeAsciiToMemory;
+                }
+                
+                const event = new CustomEvent('openmptReady', { 
+                    detail: { module: Module, version: 'libopenmpt' }
+                });
+                window.dispatchEvent(event);
+            }
+        },
+        INITIAL_MEMORY: 33554432,
+        ALLOW_MEMORY_GROWTH: 1,
+        MAXIMUM_MEMORY: 536870912,
+        ENVIRONMENT: 'web'
+    };
+    
+    if (typeof Module === 'undefined') {
+        window.Module = moduleConfig;
+    } else {
+        for (let key in moduleConfig) {
+            if (!Module.hasOwnProperty(key)) {
+                Module[key] = moduleConfig[key];
+            }
+        }
+        const originalOnRuntimeInitialized = Module.onRuntimeInitialized;
+        Module.onRuntimeInitialized = function() {
+            if (originalOnRuntimeInitialized) {
+                originalOnRuntimeInitialized.call(this);
+            }
+            moduleConfig.onRuntimeInitialized.call(this);
+        };
+    }
+    
+    if (typeof Module !== 'undefined' && Module._openmpt_module_create_from_memory) {
+        window.libopenmpt = Module;
+        if (Module.UTF8ToString && !window.UTF8ToString) {
+            window.UTF8ToString = Module.UTF8ToString;
+        }
+        if (Module.writeAsciiToMemory && !window.writeAsciiToMemory) {
+            window.writeAsciiToMemory = Module.writeAsciiToMemory;
+        }
+    }
+})();
 
-# Download webaudio-tinysynth as fallback
+window.checkOpenMPTStatus = function() {
+    const status = {
+        moduleExists: typeof Module !== 'undefined',
+        libopenmptExists: typeof libopenmpt !== 'undefined',
+        hasCreateFunction: false,
+        ready: false
+    };
+    
+    if (typeof Module !== 'undefined') {
+        status.hasCreateFunction = typeof Module._openmpt_module_create_from_memory === 'function';
+    }
+    
+    if (typeof libopenmpt !== 'undefined') {
+        if (!status.hasCreateFunction) {
+            status.hasCreateFunction = typeof libopenmpt._openmpt_module_create_from_memory === 'function';
+        }
+    }
+    
+    status.ready = status.moduleExists && status.libopenmptExists && status.hasCreateFunction;
+    return status;
+};
+EOF
+
+# Download webaudio-tinysynth for MIDI playback
 RUN curl -L -f -o /app/public/js/webaudio-tinysynth.js \
     https://g200kg.github.io/webaudio-tinysynth/webaudio-tinysynth.js || \
-    echo "TinySynth download failed"
+    echo "TinySynth download failed - MIDI support will be limited"
 
-# Download a compact SoundFont
+# Download a compact SoundFont (optional, for enhanced MIDI)
 RUN curl -L -f -o /app/public/soundfonts/default.sf2 \
     https://archive.org/download/free-soundfonts-sf2-2019-04/FluidR3%20GM.sf2 || \
-    echo "Default SoundFont download failed"
+    echo "Default SoundFont download failed - will use TinySynth built-in sounds"
 
 # Set correct permissions
 RUN chown -R musicplayer:nodejs /app
