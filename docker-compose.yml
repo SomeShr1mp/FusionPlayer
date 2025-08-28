@@ -1,7 +1,7 @@
 services:
   music-player:
     build: .
-    container_name: reetro
+    container_name: Fusion
     ports:
       - "3043:3000"
     volumes:
