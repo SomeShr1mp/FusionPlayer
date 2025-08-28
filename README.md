@@ -7,7 +7,7 @@
 
 A retro CRT-style music player that somehow manages to play tracker modules and MIDI files without completely falling apart. Built with the coding skills of someone who definitely Googled "how to JavaScript" more times than they'd care to admit.
 
-![Screenshot](https://via.placeholder.com/800x600/000000/00FF00?text=FUSION+MUSIC+PLAYER+v2.0)
+![Screenshot](https://files.maxdevnet.cc/Pictures/#gf-4a3243e6,sorthref)
 
 ##  Features That Actually Work
 
