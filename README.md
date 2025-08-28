@@ -81,10 +81,13 @@ npm i
 # Hopefully nothing broke, let's start it
 npm start
 
-
-###  File Structure (Organized Chaos)
-
+# Access at http://localhost:3000
+# (To appease those that don't enjoy the glory of Docker)
 ```
+
+##  File Structure (Organized Chaos)
+
+
 fusion-music-player/
 ├── server.js                    # Express server that somehow works
 ├── public/
