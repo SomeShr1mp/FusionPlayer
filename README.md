@@ -1,4 +1,4 @@
-#  FUSION MUSIC PLAYER v2.1.0
+#  FUSION MUSIC PLAYER v2.2.0
 *"It works! (Nobody is more surprised than I am)"*
 
 [![Docker](https://img.shields.io/badge/Docker-Surprisingly%20Works-blue)](https://docker.com)
