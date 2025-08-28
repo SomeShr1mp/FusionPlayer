@@ -88,7 +88,7 @@ npm start
 ##  File Structure (Organized Chaos)
 
 ```
-fusion-music-player/
+FusionPlayer/
 ├── server.js                    # Express server that somehow works
 ├── public/
 │   ├── index.html              # The main page (surprisingly functional)
