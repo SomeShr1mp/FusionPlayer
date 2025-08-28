@@ -1,4 +1,4 @@
-// Enhanced UIController - Manages all user interface interactions with improved error handling
+// Enhanced UIController with improved MIDI progress handling
 class UIController {
     constructor() {
         this.elements = {};
@@ -14,6 +14,9 @@ class UIController {
         this.keyboardShortcutsEnabled = false;
         this.lastProgressUpdate = 0;
         
+        // Progress bar interaction
+        this.isDraggingProgress = false;
+        
         // Error handling
         this.errorDisplayTimeout = null;
         this.statusUpdateQueue = [];
@@ -27,32 +30,21 @@ class UIController {
             duration: 0
         };
         
-        console.log('🎛️ UIController v2.0 initialized');
+        console.log('🎛️ UIController v2.1 initialized with enhanced MIDI progress support');
     }
     
     async initialize() {
         try {
             this.updateSystemStatus('Initializing UI controller...');
             
-            // Get all DOM elements with error handling
             this.initializeElements();
-            
-            // Setup event listeners with enhanced error handling
             this.setupEventListeners();
-            
-            // Initialize drag and drop
             this.initializeDragAndDrop();
             
-            // Load initial file list
             await this.loadFileList();
             
-            // Setup keyboard shortcuts
             this.initializeKeyboardShortcuts();
-            
-            // Initialize volume control
             this.initializeVolumeControl();
-            
-            // Setup progress bar interaction
             this.initializeProgressControl();
             
             this.isInitialized = true;
@@ -84,7 +76,6 @@ class UIController {
             }
         });
         
-        // Validate critical elements
         const criticalElements = ['fileList', 'playBtn', 'systemStatus'];
         const missingCritical = criticalElements.filter(id => !this.elements[id]);
         
@@ -97,7 +88,6 @@ class UIController {
     
     setupEventListeners() {
         try {
-            // Enhanced button event handlers with error boundaries
             if (this.elements.playBtn) {
                 this.elements.playBtn.addEventListener('click', () => this.safeExecute(() => this.handlePlay()));
             }
@@ -114,14 +104,12 @@ class UIController {
                 this.elements.nextBtn.addEventListener('click', () => this.safeExecute(() => this.handleNext()));
             }
             
-            // File input handler
             if (this.elements.fileInput) {
                 this.elements.fileInput.addEventListener('change', (e) => {
                     this.safeExecute(() => this.handleFiles(Array.from(e.target.files)));
                 });
             }
             
-            // Upload area click handler
             if (this.elements.uploadArea) {
                 this.elements.uploadArea.addEventListener('click', () => {
                     this.safeExecute(() => {
@@ -129,13 +117,6 @@ class UIController {
                             this.elements.fileInput.click();
                         }
                     });
-                });
-            }
-            
-            // Error close handler
-            if (this.elements.errorClose) {
-                this.elements.errorClose.addEventListener('click', () => {
-                    this.hideError();
                 });
             }
             
@@ -153,7 +134,6 @@ class UIController {
         try {
             const uploadArea = this.elements.uploadArea;
             
-            // Enhanced drag and drop with visual feedback
             uploadArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -186,7 +166,6 @@ class UIController {
     initializeKeyboardShortcuts() {
         try {
             document.addEventListener('keydown', (e) => {
-                // Only handle shortcuts when not typing in input fields
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
                 
                 this.safeExecute(() => {
@@ -266,7 +245,7 @@ class UIController {
                 isDragging = false;
             });
             
-            // Touch support for mobile
+            // Touch support
             volumeSlider.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 const touch = e.touches[0];
@@ -292,17 +271,74 @@ class UIController {
         try {
             const progressBar = this.elements.progressBar;
             
-            progressBar.addEventListener('click', (e) => {
-                if (!this.audioEngine || !this.uiState.isPlaying) return;
+            const seekToPosition = (e) => {
+                if (!this.audioEngine || !this.uiState.duration || this.uiState.duration === 0) {
+                    return;
+                }
                 
                 const rect = progressBar.getBoundingClientRect();
                 const x = e.clientX - rect.left;
-                const percentage = x / rect.width;
+                const percentage = Math.max(0, Math.min(1, x / rect.width));
                 const seekTime = percentage * this.uiState.duration;
                 
+                // For MIDI files, we need to restart playback from the beginning
+                // since TinySynth doesn't support seeking
+                if (this.currentTrack && this.currentTrack.type === 'midi') {
+                    if (seekTime < this.uiState.currentTime) {
+                        // Seeking backwards in MIDI - restart from beginning
+                        this.updateSystemStatus('⚠️ MIDI seeking backwards - restarting track');
+                        this.handlePlay();
+                        return;
+                    }
+                }
+                
+                // Try to seek
                 if (this.audioEngine.seekTo) {
                     this.audioEngine.seekTo(seekTime);
+                } else if (this.audioEngine.chiptunePlayer && this.audioEngine.chiptunePlayer.seekTo) {
+                    this.audioEngine.chiptunePlayer.seekTo(seekTime);
                 }
+            };
+            
+            progressBar.addEventListener('mousedown', (e) => {
+                this.isDraggingProgress = true;
+                seekToPosition(e);
+            });
+            
+            progressBar.addEventListener('mousemove', (e) => {
+                if (this.isDraggingProgress) {
+                    seekToPosition(e);
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                this.isDraggingProgress = false;
+            });
+            
+            progressBar.addEventListener('click', (e) => {
+                if (!this.isDraggingProgress) {
+                    seekToPosition(e);
+                }
+            });
+            
+            // Touch support
+            progressBar.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.isDraggingProgress = true;
+                const touch = e.touches[0];
+                seekToPosition(touch);
+            });
+            
+            progressBar.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (this.isDraggingProgress) {
+                    const touch = e.touches[0];
+                    seekToPosition(touch);
+                }
+            });
+            
+            progressBar.addEventListener('touchend', () => {
+                this.isDraggingProgress = false;
             });
             
             console.log('✅ Progress control initialized');
@@ -336,7 +372,7 @@ class UIController {
         } catch (error) {
             console.error('Error loading file list:', error);
             this.showError('Failed to load file list: ' + error.message);
-            this.renderFileList(); // Render empty list
+            this.renderFileList();
         }
     }
     
@@ -376,7 +412,6 @@ class UIController {
                 `;
             }).join('');
             
-            // Re-select current track if it exists
             if (this.currentIndex >= 0 && this.currentIndex < this.playlist.length) {
                 this.highlightTrack(this.currentIndex);
             }
@@ -411,13 +446,11 @@ class UIController {
                 return;
             }
             
-            // Update selection
             this.currentIndex = index;
             this.currentTrack = this.playlist[index];
             
             console.log(`Selected track: ${this.currentTrack.filename} (type: ${this.currentTrack.type})`);
             
-            // Update UI
             this.highlightTrack(index);
             this.updateTrackInfo();
             
@@ -432,22 +465,18 @@ class UIController {
     
     highlightTrack(index) {
         try {
-            // Remove all highlights
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('selected', 'playing');
             });
             
-            // Add selection highlight
             const fileItem = document.querySelector(`[data-index="${index}"]`);
             if (fileItem) {
                 fileItem.classList.add('selected');
                 
-                // Add playing highlight if currently playing
                 if (this.uiState.isPlaying) {
                     fileItem.classList.add('playing');
                 }
                 
-                // Scroll into view if needed
                 fileItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
             
@@ -490,7 +519,6 @@ class UIController {
                 return;
             }
             
-            // If paused, resume instead of restarting
             if (this.uiState.isPaused) {
                 this.audioEngine.resume();
                 return;
@@ -500,7 +528,7 @@ class UIController {
             
             await this.audioEngine.playTrack(this.currentTrack);
             
-            this.highlightTrack(this.currentIndex); // Update playing status
+            this.highlightTrack(this.currentIndex);
             console.log(`✅ Playback started: ${this.currentTrack.filename}`);
             
         } catch (error) {
@@ -529,7 +557,6 @@ class UIController {
                 console.log('⏹️ Playback stopped');
             }
             
-            // Remove playing highlights
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('playing');
             });
@@ -549,7 +576,6 @@ class UIController {
             
             this.selectTrack(newIndex);
             
-            // Auto-play if currently playing
             if (this.uiState.isPlaying) {
                 setTimeout(() => this.handlePlay(), 100);
             }
@@ -569,7 +595,6 @@ class UIController {
             
             this.selectTrack(newIndex);
             
-            // Auto-play if currently playing
             if (this.uiState.isPlaying) {
                 setTimeout(() => this.handlePlay(), 100);
             }
@@ -585,7 +610,6 @@ class UIController {
             console.log('🎵 Track ended');
             this.updateSystemStatus('Track ended');
             
-            // Auto-advance to next track
             setTimeout(() => {
                 this.handleNext();
             }, 1000);
@@ -609,7 +633,6 @@ class UIController {
         this.uiState.isPlaying = isPlaying;
         this.uiState.isPaused = isPaused;
         
-        // Update button states
         if (this.elements.playBtn) {
             this.elements.playBtn.disabled = isPlaying && !isPaused;
         }
@@ -620,7 +643,6 @@ class UIController {
             this.elements.stopBtn.disabled = !isPlaying && !isPaused;
         }
         
-        // Update playing highlight
         if (isPlaying && this.currentIndex >= 0) {
             this.highlightTrack(this.currentIndex);
         } else if (!isPlaying) {
@@ -632,10 +654,15 @@ class UIController {
     
     updateProgress(currentTime, duration) {
         try {
+            // Don't update if user is dragging the progress bar
+            if (this.isDraggingProgress) {
+                return;
+            }
+            
             this.uiState.currentTime = currentTime;
             this.uiState.duration = duration;
             
-            // Throttle progress updates to avoid excessive DOM manipulation
+            // Throttle progress updates
             const now = performance.now();
             if (now - this.lastProgressUpdate < 100) return;
             this.lastProgressUpdate = now;
@@ -716,12 +743,10 @@ class UIController {
                 }
             }
             
-            // Show upload results
             const successCount = uploadResults.filter(r => r.startsWith('✓')).length;
             const message = `Upload complete: ${successCount}/${files.length} files`;
             this.updateSystemStatus(message);
             
-            // Reload file list
             await this.loadFileList();
             
         } catch (error) {
@@ -733,8 +758,6 @@ class UIController {
     showError(message) {
         try {
             console.error('🚨 UI Error:', message);
-            
-            // Simple error handling - just update system status
             this.updateSystemStatus('ERROR: ' + message);
             
         } catch (error) {
@@ -742,7 +765,6 @@ class UIController {
         }
     }
     
-    // Utility method for safe execution with error boundaries
     safeExecute(fn) {
         try {
             return fn();
@@ -755,7 +777,6 @@ class UIController {
     updateSystemStatus(message) {
         try {
             if (this.elements.systemStatus) {
-                // Add timestamp to status messages
                 const timestamp = new Date().toLocaleTimeString();
                 this.elements.systemStatus.textContent = `[${timestamp}] ${message}`;
             }
@@ -794,6 +815,7 @@ class UIController {
             },
             ui: {
                 volume: this.volumeValue,
+                isDraggingProgress: this.isDraggingProgress,
                 ...this.uiState
             }
         };
