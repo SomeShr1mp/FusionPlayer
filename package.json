@@ -1,7 +1,7 @@
 {
   "name": "fusion-music-player",
-  "version": "2.0.0",
-  "description": "Advanced retro CRT-style music player with AudioWorklet, OpenMPT.js, and FluidSynth.js support",
+  "version": "2.1.0",
+  "description": "Advanced retro CRT-style music player with Web Audio Direct Mode, OpenMPT.js, and TinySynth support",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -19,15 +19,15 @@
     "tracker",
     "midi",
     "openmpt",
-    "fluidsynth",
-    "audioworklet",
+    "TinySynth",
     "retro",
     "crt",
     "web-audio",
-    "phase2"
+    "Insanity"
+    "Help"
   ],
   "author": "Fusion Music Player Project",
-  "license": "MIT",
+  "license": "GPLv3",
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
@@ -42,12 +42,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/fusion-music-player.git"
+    "url": "https://github.com/SomeShr1mp/FusionPLayer.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/fusion-music-player/issues"
+    "url": "https://github.com/SomeShr1mp/FusionPLayer/issues"
   },
-  "homepage": "https://github.com/your-username/fusion-music-player#readme",
+  "homepage": "https://github.com/SomeShr1mp/FusionPLayer#readme",
   "audio-engines": {
     "openmpt": {
       "version": "0.6.9",
