@@ -47,19 +47,23 @@
     <button onclick="testChiptunePlayback()">Test Chiptune Playback</button>
     <button onclick="testMidiPlayback()">Test MIDI Playback</button>
     <button onclick="downloadTestFile()">Download Test File</button>
+    <button onclick="runAllTests()">Run All Tests</button>
     
     <h2>Console Log</h2>
     <div id="log"></div>
 
-    <!-- Load libraries in correct order -->
+    <!-- Load libraries in CRITICAL order -->
     <script src="/js/libopenmpt.js"></script>
-    <script src="/js/openmpt-loader.js"></script>
+    <script src="/js/openmpt-loader.js"></script> <!-- Must be between libopenmpt and chiptune2 -->
     <script src="/js/chiptune2.js"></script>
     <script src="/js/webaudio-tinysynth.js"></script>
     <script src="/js/midi-parser.js"></script>
     
     <script>
         let logBuffer = [];
+        let audioContext = null;
+        let chiptunePlayer = null;
+        let tinySynth = null;
         
         function log(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -82,7 +86,7 @@
             log(`${test}: ${status} - ${message}`, status);
         }
         
-        async function runTests() {
+        async function runAllTests() {
             document.getElementById('results').innerHTML = '';
             log('Starting comprehensive tests...');
             
@@ -121,17 +125,34 @@
                     addResult('libopenmpt Functions', 'fail', 'Critical functions missing');
                 }
             } else {
-                addResult('libopenmpt Global', 'fail', 'libopenmpt global not found');
+                addResult('libopenmpt Global', 'warn', 'libopenmpt global not found (will be created from Module)');
             }
             
-            // Test 3: Check ChiptuneJS
+            // Test 3: Check helper functions (CRITICAL for ChiptuneJS)
+            if (typeof UTF8ToString !== 'undefined') {
+                addResult('UTF8ToString', 'pass', 'Helper function available');
+            } else {
+                addResult('UTF8ToString', 'fail', 'Helper function missing - ChiptuneJS will fail');
+            }
+            
+            if (typeof writeAsciiToMemory !== 'undefined') {
+                addResult('writeAsciiToMemory', 'pass', 'Helper function available');
+            } else {
+                addResult('writeAsciiToMemory', 'fail', 'Helper function missing - ChiptuneJS may fail');
+            }
+            
+            // Test 4: Check ChiptuneJS
             if (typeof ChiptuneJsConfig !== 'undefined' && typeof ChiptuneJsPlayer !== 'undefined') {
                 addResult('ChiptuneJS', 'pass', 'ChiptuneJS classes available');
                 
-                // Try to create a player
+                // Try to create a player with audio context
                 try {
-                    const testPlayer = new ChiptuneJsPlayer(new ChiptuneJsConfig(-1));
-                    addResult('ChiptuneJS Player', 'pass', 'Player instance created');
+                    if (!audioContext) {
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    const config = new ChiptuneJsConfig(-1, 50, 1, audioContext);
+                    const testPlayer = new ChiptuneJsPlayer(config);
+                    addResult('ChiptuneJS Player', 'pass', 'Player instance created with audio context');
                 } catch (error) {
                     addResult('ChiptuneJS Player', 'fail', `Creation failed: ${error.message}`);
                 }
@@ -139,28 +160,18 @@
                 addResult('ChiptuneJS', 'fail', 'ChiptuneJS not loaded');
             }
             
-            // Test 4: Check TinySynth
+            // Test 5: Check TinySynth
             if (typeof WebAudioTinySynth !== 'undefined') {
                 addResult('TinySynth', 'pass', 'WebAudioTinySynth available');
                 
                 try {
-                    const synth = new WebAudioTinySynth();
+                    const synth = new WebAudioTinySynth({quality: 1, useReverb: 0});
                     addResult('TinySynth Instance', 'pass', 'TinySynth created');
                 } catch (error) {
                     addResult('TinySynth Instance', 'fail', `Creation failed: ${error.message}`);
                 }
             } else {
                 addResult('TinySynth', 'fail', 'WebAudioTinySynth not loaded');
-            }
-            
-            // Test 5: Check helper functions
-            const helpers = ['UTF8ToString', 'writeAsciiToMemory'];
-            for (const helper of helpers) {
-                if (typeof window[helper] === 'function') {
-                    addResult(`Helper: ${helper}`, 'pass', 'Function available');
-                } else {
-                    addResult(`Helper: ${helper}`, 'warn', 'Function not globally available');
-                }
             }
             
             // Test 6: Server WASM check
@@ -173,7 +184,7 @@
                     if (info && info.exists) {
                         addResult(`Server File: ${file}`, 'pass', `Size: ${info.size} bytes`);
                     } else {
-                        addResult(`Server File: ${file}`, 'fail', 'Not found');
+                        addResult(`Server File: ${file}`, 'warn', 'Not found (not critical if JS works)');
                     }
                 }
             } catch (error) {
@@ -182,29 +193,48 @@
         }
         
         function checkOpenMPT() {
-            if (window.checkOpenMPTStatus) {
-                const status = window.checkOpenMPTStatus();
-                log('OpenMPT Status: ' + JSON.stringify(status));
-                
-                if (status.ready) {
-                    addResult('OpenMPT Status', 'pass', 'OpenMPT is fully ready');
-                } else {
-                    addResult('OpenMPT Status', 'fail', 'OpenMPT not ready: ' + status.message);
-                }
-                
-                for (const [key, value] of Object.entries(status)) {
-                    if (key !== 'ready' && key !== 'message') {
-                        addResult(`OpenMPT.${key}`, value ? 'pass' : 'fail', String(value));
-                    }
-                }
+            const status = {
+                moduleExists: typeof Module !== 'undefined',
+                libopenmptExists: typeof libopenmpt !== 'undefined',
+                hasCreateFunction: !!(window.Module && window.Module._openmpt_module_create_from_memory),
+                hasReadFunction: !!(window.Module && window.Module._openmpt_module_read_float_stereo),
+                hasDestroyFunction: !!(window.Module && window.Module._openmpt_module_destroy),
+                hasMalloc: !!(window.Module && window.Module._malloc),
+                hasFree: !!(window.Module && window.Module._free),
+                hasUTF8ToString: typeof UTF8ToString !== 'undefined',
+                hasWriteAscii: typeof writeAsciiToMemory !== 'undefined'
+            };
+            
+            const ready = Object.values(status).every(v => v === true);
+            status.ready = ready;
+            status.message = ready ? 'OpenMPT is ready' : 'OpenMPT missing components';
+            
+            log('OpenMPT Status: ' + JSON.stringify(status));
+            
+            if (ready) {
+                addResult('OpenMPT Status', 'pass', 'OpenMPT is fully ready');
             } else {
-                addResult('OpenMPT Status', 'fail', 'checkOpenMPTStatus function not found');
+                addResult('OpenMPT Status', 'fail', 'OpenMPT not ready: ' + status.message);
+            }
+            
+            for (const [key, value] of Object.entries(status)) {
+                if (key !== 'ready' && key !== 'message') {
+                    addResult(`OpenMPT.${key}`, value ? 'pass' : 'fail', String(value));
+                }
             }
         }
         
         async function testChiptunePlayback() {
             try {
                 log('Testing Chiptune playback...');
+                
+                // Initialize audio context if needed
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                    }
+                }
                 
                 // Get list of music files
                 const response = await fetch('/api/music-files');
@@ -218,32 +248,27 @@
                 
                 log(`Found tracker file: ${trackerFile.filename}`);
                 
-                // Download the file
-                const fileResponse = await fetch(`/music/${trackerFile.filename}`);
-                const arrayBuffer = await fileResponse.arrayBuffer();
-                log(`Downloaded ${arrayBuffer.byteLength} bytes`);
+                // Create player with audio context
+                if (!chiptunePlayer) {
+                    const config = new ChiptuneJsConfig(-1, 50, 1, audioContext);
+                    chiptunePlayer = new ChiptuneJsPlayer(config);
+                }
                 
-                // Create player
-                const player = new ChiptuneJsPlayer(new ChiptuneJsConfig(-1));
-                
-                // Try to play
-                player.onEnded(() => {
-                    log('Playback ended');
+                // Load and play
+                chiptunePlayer.load(`/music/${trackerFile.filename}`, (buffer) => {
+                    if (buffer) {
+                        chiptunePlayer.play(buffer);
+                        addResult('Chiptune Playback', 'pass', `Playing ${trackerFile.filename}`);
+                        
+                        // Stop after 3 seconds
+                        setTimeout(() => {
+                            chiptunePlayer.stop();
+                            log('Playback stopped');
+                        }, 3000);
+                    } else {
+                        addResult('Chiptune Playback', 'fail', 'Failed to load file');
+                    }
                 });
-                
-                player.onError((error) => {
-                    log('Playback error: ' + JSON.stringify(error), 'error');
-                });
-                
-                player.play(arrayBuffer);
-                
-                addResult('Chiptune Playback', 'pass', `Playing ${trackerFile.filename}`);
-                
-                // Stop after 3 seconds
-                setTimeout(() => {
-                    player.stop();
-                    log('Playback stopped');
-                }, 3000);
                 
             } catch (error) {
                 addResult('Chiptune Playback', 'fail', error.message);
@@ -264,10 +289,13 @@
                     addResult('MIDI Test', 'warn', 'No MIDI files available');
                     
                     // Test with generated notes
-                    const synth = new WebAudioTinySynth();
-                    synth.send([0x90, 60, 100], 0); // Note on
+                    if (!tinySynth) {
+                        tinySynth = new WebAudioTinySynth({quality: 1, useReverb: 0});
+                    }
+                    
+                    tinySynth.send([0x90, 60, 100], 0); // Note on
                     setTimeout(() => {
-                        synth.send([0x80, 60, 0], 0); // Note off
+                        tinySynth.send([0x80, 60, 0], 0); // Note off
                         log('Test note played');
                     }, 1000);
                     
@@ -277,24 +305,23 @@
                 
                 log(`Found MIDI file: ${midiFile.filename}`);
                 
-                // Download and play
-                const fileResponse = await fetch(`/music/${midiFile.filename}`);
-                const arrayBuffer = await fileResponse.arrayBuffer();
+                // Create synth if needed
+                if (!tinySynth) {
+                    tinySynth = new WebAudioTinySynth({quality: 1, useReverb: 0});
+                }
                 
-                const synth = new WebAudioTinySynth();
-                const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
-                const url = URL.createObjectURL(blob);
-                
-                await synth.loadMIDIUrl(url);
-                synth.playMIDI();
-                
-                addResult('MIDI Playback', 'pass', `Playing ${midiFile.filename}`);
+                // Load and play
+                tinySynth.loadMIDIUrl(`/music/${midiFile.filename}`);
                 
                 setTimeout(() => {
-                    synth.stopMIDI();
-                    URL.revokeObjectURL(url);
-                    log('MIDI playback stopped');
-                }, 3000);
+                    tinySynth.playMIDI();
+                    addResult('MIDI Playback', 'pass', `Playing ${midiFile.filename}`);
+                    
+                    setTimeout(() => {
+                        tinySynth.stopMIDI();
+                        log('MIDI playback stopped');
+                    }, 3000);
+                }, 500);
                 
             } catch (error) {
                 addResult('MIDI Playback', 'fail', error.message);
@@ -329,16 +356,40 @@
         // Wait for libraries to load
         window.addEventListener('load', () => {
             setTimeout(() => {
-                log('Page loaded, waiting for libraries...');
-                setTimeout(runTests, 1000);
-            }, 500);
+                log('Page loaded, checking libraries...');
+                
+                // Check initial library status
+                const libs = {
+                    'Module': typeof Module !== 'undefined',
+                    'libopenmpt': typeof libopenmpt !== 'undefined',
+                    'ChiptuneJsConfig': typeof ChiptuneJsConfig !== 'undefined',
+                    'ChiptuneJsPlayer': typeof ChiptuneJsPlayer !== 'undefined',
+                    'WebAudioTinySynth': typeof WebAudioTinySynth !== 'undefined',
+                    'UTF8ToString': typeof UTF8ToString !== 'undefined',
+                    'writeAsciiToMemory': typeof writeAsciiToMemory !== 'undefined',
+                    'MidiParser': typeof MidiParser !== 'undefined'
+                };
+                
+                for (const [name, loaded] of Object.entries(libs)) {
+                    if (loaded) {
+                        log(`✅ ${name} loaded`);
+                    } else {
+                        log(`❌ ${name} not loaded`, 'error');
+                    }
+                }
+                
+                // Auto-run tests
+                setTimeout(runAllTests, 500);
+            }, 1000);
         });
         
-        // Listen for OpenMPT ready event
-        window.addEventListener('openmptReady', (event) => {
-            log('OpenMPT Ready Event received!');
-            addResult('OpenMPT Event', 'pass', 'openmptReady event fired');
-        });
+        // Handle user activation
+        document.addEventListener('click', async () => {
+            if (audioContext && audioContext.state === 'suspended') {
+                await audioContext.resume();
+                log('Audio context activated');
+            }
+        }, { once: true });
     </script>
 </body>
 </html>

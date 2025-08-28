@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FUSION MUSIC PLAYER v2.0 (Fallback)</title>
+    <title>FUSION MUSIC PLAYER v2.0</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
@@ -11,7 +11,7 @@
     <div class="container">
         <div class="header">
             <div class="title">▓ FUSION MUSIC PLAYER ▓</div>
-            <div class="subtitle">ChiptuneJS + TinySynth :: Fallback Mode :: v2.1.0</div>
+            <div class="subtitle">Web Audio Direct Mode :: ChiptuneJS + TinySynth :: v2.1.0</div>
         </div>
         
         <div class="main-content">
@@ -70,29 +70,29 @@
         
         <div class="system-info">
             <h4>▶ SYSTEM STATUS</h4>
-            <div id="systemStatus">Initializing fallback audio systems...</div>
+            <div id="systemStatus">Initializing audio systems...</div>
         </div>
     </div>
 
-    <!-- Audio Libraries - Fixed loading order -->
+    <!-- Audio Libraries - Load in CRITICAL order -->
     <script src="/js/libopenmpt.js"></script>
-    <script src="/js/openmpt-loader.js"></script> <!-- CRITICAL: Helper functions -->
+    <script src="/js/openmpt-loader.js"></script> <!-- CRITICAL: Must load between libopenmpt and chiptune2 -->
     <script src="/js/chiptune2.js"></script>
     <script src="/js/webaudio-tinysynth.js"></script>
     <script src="/js/midi-parser.js"></script>
     
-    <!-- Fallback Engine and UI Controller -->
-    <script src="/js/fallback-audio-engine-fixed.js"></script>
+    <!-- Core Application Files -->
+    <script src="/js/audio-engine.js"></script> <!-- Updated audio engine with fixes -->
     <script src="/js/ui-controller.js"></script>
     
     <script>
-        // Enhanced fallback initialization
+        // Enhanced initialization
         let player = null;
         let uiController = null;
         
-        async function initializeFallbackPlayer() {
+        async function initializePlayer() {
             try {
-                console.log('🎵 Fusion Music Player v2.1 - Fallback Mode Initializing...');
+                console.log('🎵 Fusion Music Player v2.1 - Initializing...');
                 
                 // Initialize UI Controller first
                 uiController = new UIController();
@@ -101,16 +101,22 @@
                 // Make uiController globally available for onclick handlers
                 window.uiController = uiController;
                 
-                // Check for FallbackAudioEngine
-                if (typeof FallbackAudioEngine === 'undefined') {
-                    throw new Error('FallbackAudioEngine not available');
+                // Check if AudioEngine is available
+                if (typeof AudioEngine === 'undefined') {
+                    throw new Error('AudioEngine not available - check if audio-engine.js is loaded');
                 }
                 
-                // Initialize Fallback Audio Engine
-                console.log('🔄 Using Fallback Audio Engine (Web Audio Direct Mode)');
-                uiController.updateSystemStatus('Initializing Fallback Audio Engine...');
-                const audioEngine = new FallbackAudioEngine();
-                await audioEngine.initialize();
+                // Use the updated AudioEngine with Web Audio Direct Mode
+                console.log('🔄 Using Web Audio Direct Mode');
+                uiController.updateSystemStatus('Initializing Web Audio Engine...');
+                const audioEngine = new AudioEngine();
+                
+                try {
+                    await audioEngine.initialize();
+                } catch (initError) {
+                    console.error('Audio engine initialization failed:', initError);
+                    throw initError;
+                }
                 
                 // Connect UI and Audio Engine
                 uiController.setAudioEngine(audioEngine);
@@ -125,31 +131,44 @@
                 // Make player globally available for debugging
                 window.player = player;
                 
-                // Check library loading status
-                const libStatus = {
-                    Module: typeof Module !== 'undefined',
-                    libopenmpt: typeof libopenmpt !== 'undefined',
-                    ChiptuneJsConfig: typeof ChiptuneJsConfig !== 'undefined',
-                    ChiptuneJsPlayer: typeof ChiptuneJsPlayer !== 'undefined',
-                    WebAudioTinySynth: typeof WebAudioTinySynth !== 'undefined',
-                    UTF8ToString: typeof UTF8ToString !== 'undefined',
-                    writeAsciiToMemory: typeof writeAsciiToMemory !== 'undefined',
-                    MidiParser: typeof MidiParser !== 'undefined'
+                // Check library status
+                const libraryStatus = {
+                    'OpenMPT WASM': typeof Module !== 'undefined' && Module._openmpt_module_create_from_memory,
+                    'ChiptuneJS': typeof ChiptuneJsPlayer !== 'undefined',
+                    'TinySynth': typeof WebAudioTinySynth !== 'undefined',
+                    'Helper Functions': typeof UTF8ToString !== 'undefined' && typeof writeAsciiToMemory !== 'undefined'
                 };
                 
-                console.log('📊 Library loading status:', libStatus);
+                const warnings = [];
                 
-                const loadedCount = Object.values(libStatus).filter(Boolean).length;
-                const totalCount = Object.keys(libStatus).length;
+                if (!libraryStatus['OpenMPT WASM']) {
+                    warnings.push('Tracker files may not work (OpenMPT WASM not loaded)');
+                }
                 
-                uiController.updateSystemStatus(
-                    `🎵 Fallback system ready (${loadedCount}/${totalCount} libraries loaded) - Web Audio Direct Mode`
-                );
+                if (!libraryStatus['Helper Functions']) {
+                    warnings.push('Tracker files may have issues (helper functions missing)');
+                }
                 
-                console.log('✅ Fallback Music Player initialized successfully');
+                if (!libraryStatus['TinySynth']) {
+                    warnings.push('MIDI files will not work (TinySynth not loaded)');
+                }
+                
+                // Display status
+                let statusMsg = '🎵 Fusion Player v2.1 ready (Web Audio Direct Mode)';
+                
+                if (warnings.length > 0) {
+                    statusMsg += ' - ⚠️ ' + warnings.join(', ');
+                    console.warn('⚠️ Warnings:', warnings);
+                }
+                
+                uiController.updateSystemStatus(statusMsg);
+                
+                // Log library status
+                console.log('📚 Library Status:', libraryStatus);
+                console.log('✅ Fusion Music Player v2.1 ready');
                 
             } catch (error) {
-                console.error('❌ Fallback initialization failed:', error);
+                console.error('❌ Player initialization failed:', error);
                 
                 // Show error in system status
                 const systemStatus = document.getElementById('systemStatus');
@@ -167,8 +186,8 @@
         
         // Initialize when page loads
         window.addEventListener('load', () => {
-            // Add a delay for libraries to load
-            setTimeout(initializeFallbackPlayer, 500);
+            // Wait a moment for all scripts to load
+            setTimeout(initializePlayer, 500);
         });
         
         // User activation for audio context
@@ -180,7 +199,7 @@
                         console.log('🔊 Audio context activated');
                         player.audioEngine.updateStatus('Audio context activated - ready to play');
                         
-                        // Also activate TinySynth context if it exists
+                        // Also check TinySynth context
                         if (player.audioEngine.tinySynth && player.audioEngine.tinySynth.getAudioContext) {
                             const synthContext = player.audioEngine.tinySynth.getAudioContext();
                             if (synthContext && synthContext.state === 'suspended') {
@@ -195,7 +214,7 @@
             }
         }, { passive: true });
         
-        // Keyboard shortcuts
+        // Basic keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (!player || !player.uiController) return;
             
@@ -240,7 +259,7 @@
             }
         });
         
-        // Debug helper
+        // Debug helper function
         window.debugAudio = function() {
             if (!player || !player.audioEngine) {
                 console.log('Player not initialized');
@@ -257,14 +276,43 @@
                 'Volume': engine.volume,
                 'Has ChiptuneJS': !!engine.chiptunePlayer,
                 'Has TinySynth': !!engine.tinySynth,
-                'Fallback Mode': engine.fallbackMode
+                'Current Playback Type': engine.playbackType
             };
             
             console.table(status);
+            
+            // Check library status
+            const libs = {
+                'Module (WASM)': typeof Module !== 'undefined',
+                'libopenmpt': typeof libopenmpt !== 'undefined',
+                'ChiptuneJsConfig': typeof ChiptuneJsConfig !== 'undefined',
+                'ChiptuneJsPlayer': typeof ChiptuneJsPlayer !== 'undefined',
+                'WebAudioTinySynth': typeof WebAudioTinySynth !== 'undefined',
+                'UTF8ToString': typeof UTF8ToString !== 'undefined',
+                'writeAsciiToMemory': typeof writeAsciiToMemory !== 'undefined'
+            };
+            
+            console.log('Library Status:');
+            console.table(libs);
+            
+            // Check WASM functions
+            if (typeof Module !== 'undefined') {
+                const wasmFuncs = {
+                    'create_from_memory': !!Module._openmpt_module_create_from_memory,
+                    'read_float_stereo': !!Module._openmpt_module_read_float_stereo,
+                    'destroy': !!Module._openmpt_module_destroy,
+                    'malloc': !!Module._malloc,
+                    'free': !!Module._free
+                };
+                console.log('WASM Functions:');
+                console.table(wasmFuncs);
+            }
+            
             return status;
         };
         
-        console.log('💡 Debug helper available - type debugAudio() in console');
+        // Add console helper message
+        console.log('💡 Debug helper available - type debugAudio() in console to see current status');
     </script>
 </body>
 </html>
