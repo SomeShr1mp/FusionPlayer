@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FUSION MUSIC PLAYER v2.0 (Fallback)</title>
     <link rel="stylesheet" href="/css/styles.css">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
     <div class="container">
         <div class="header">
             <div class="title">▓ FUSION MUSIC PLAYER ▓</div>
-            <div class="subtitle">ChiptuneJS + TinySynth :: Fallback Mode :: v2.1.0</div>
+            <div class="subtitle">ChiptuneJS + TinySynth :: Fallback Mode :: v2.0.0</div>
         </div>
         
         <div class="main-content">
@@ -74,25 +73,56 @@
         </div>
     </div>
 
-    <!-- Audio Libraries - Fixed loading order -->
+    <!-- Audio Libraries - Fallback Mode -->
     <script src="/js/libopenmpt.js"></script>
-    <script src="/js/openmpt-loader.js"></script> <!-- CRITICAL: Helper functions -->
     <script src="/js/chiptune2.js"></script>
+    <script src="/js/libfluidsynth-2.3.0.js"></script>
+    <script src="/js/js-synthesizer.js"></script>
     <script src="/js/webaudio-tinysynth.js"></script>
     <script src="/js/midi-parser.js"></script>
     
     <!-- Fallback Engine and UI Controller -->
-    <script src="/js/fallback-audio-engine-fixed.js"></script>
+    <script src="/js/fallback-audio-engine.js"></script>
     <script src="/js/ui-controller.js"></script>
     
     <script>
-        // Enhanced fallback initialization
+        // Enhanced fallback initialization (keeping original UI)
         let player = null;
-        let uiController = null;
+        let uiController = null; // Make globally available for onclick handlers
         
         async function initializeFallbackPlayer() {
             try {
-                console.log('🎵 Fusion Music Player v2.1 - Fallback Mode Initializing...');
+                console.log('🎵 Fusion Music Player v2.0 - Fallback Mode Initializing...');
+                
+                // Wait for libraries to load with timeout
+                let attempts = 0;
+                const maxAttempts = 50;
+                
+                while (typeof FallbackAudioEngine === 'undefined' && 
+                       typeof UIController === 'undefined' && 
+                       attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                if (attempts >= maxAttempts) {
+                    throw new Error('Required libraries failed to load');
+                }
+                
+                // Check library loading status
+                const libStatus = {
+                    Module: typeof Module !== 'undefined',
+                    ChiptuneJsConfig: typeof ChiptuneJsConfig !== 'undefined',
+                    ChiptuneJsPlayer: typeof ChiptuneJsPlayer !== 'undefined',
+                    JSSynth: typeof JSSynth !== 'undefined', 
+                    WebAudioTinySynth: typeof WebAudioTinySynth !== 'undefined',
+                    LibFluidSynth: typeof LibFluidSynth !== 'undefined',
+                    FallbackAudioEngine: typeof FallbackAudioEngine !== 'undefined',
+                    UIController: typeof UIController !== 'undefined',
+                    MidiParser: typeof MidiParser !== 'undefined'
+                };
+                
+                console.log('📊 Library loading status:', libStatus);
                 
                 // Initialize UI Controller first
                 uiController = new UIController();
@@ -101,14 +131,7 @@
                 // Make uiController globally available for onclick handlers
                 window.uiController = uiController;
                 
-                // Check for FallbackAudioEngine
-                if (typeof FallbackAudioEngine === 'undefined') {
-                    throw new Error('FallbackAudioEngine not available');
-                }
-                
                 // Initialize Fallback Audio Engine
-                console.log('🔄 Using Fallback Audio Engine (Web Audio Direct Mode)');
-                uiController.updateSystemStatus('Initializing Fallback Audio Engine...');
                 const audioEngine = new FallbackAudioEngine();
                 await audioEngine.initialize();
                 
@@ -125,26 +148,21 @@
                 // Make player globally available for debugging
                 window.player = player;
                 
-                // Check library loading status
-                const libStatus = {
-                    Module: typeof Module !== 'undefined',
-                    libopenmpt: typeof libopenmpt !== 'undefined',
-                    ChiptuneJsConfig: typeof ChiptuneJsConfig !== 'undefined',
-                    ChiptuneJsPlayer: typeof ChiptuneJsPlayer !== 'undefined',
-                    WebAudioTinySynth: typeof WebAudioTinySynth !== 'undefined',
-                    UTF8ToString: typeof UTF8ToString !== 'undefined',
-                    writeAsciiToMemory: typeof writeAsciiToMemory !== 'undefined',
-                    MidiParser: typeof MidiParser !== 'undefined'
-                };
-                
-                console.log('📊 Library loading status:', libStatus);
-                
+                // Show library status
                 const loadedCount = Object.values(libStatus).filter(Boolean).length;
                 const totalCount = Object.keys(libStatus).length;
                 
                 uiController.updateSystemStatus(
-                    `🎵 Fallback system ready (${loadedCount}/${totalCount} libraries loaded) - Web Audio Direct Mode`
+                    `🎵 Fallback system ready (${loadedCount}/${totalCount} libraries loaded) ` +
+                    `- Running without AudioWorklet support`
                 );
+                
+                // Show compatibility message
+                setTimeout(() => {
+                    const compatMsg = 'ℹ️ Running in compatibility mode. For best performance, use Chrome 66+ or Firefox 76+';
+                    uiController.updateSystemStatus(compatMsg);
+                    console.log(compatMsg);
+                }, 3000);
                 
                 console.log('✅ Fallback Music Player initialized successfully');
                 
@@ -167,8 +185,8 @@
         
         // Initialize when page loads
         window.addEventListener('load', () => {
-            // Add a delay for libraries to load
-            setTimeout(initializeFallbackPlayer, 500);
+            // Add a longer delay for fallback mode to ensure all libraries load
+            setTimeout(initializeFallbackPlayer, 300);
         });
         
         // User activation for audio context
@@ -179,33 +197,23 @@
                         await player.audioEngine.audioContext.resume();
                         console.log('🔊 Audio context activated');
                         player.audioEngine.updateStatus('Audio context activated - ready to play');
-                        
-                        // Also activate TinySynth context if it exists
-                        if (player.audioEngine.tinySynth && player.audioEngine.tinySynth.getAudioContext) {
-                            const synthContext = player.audioEngine.tinySynth.getAudioContext();
-                            if (synthContext && synthContext.state === 'suspended') {
-                                await synthContext.resume();
-                                console.log('🔊 TinySynth context activated');
-                            }
-                        }
                     } catch (error) {
                         console.error('Failed to activate audio context:', error);
                     }
                 }
             }
-        }, { passive: true });
+            // Remove this listener after first activation
+            document.removeEventListener('click', activateAudio);
+        });
         
-        // Keyboard shortcuts
+        // Basic keyboard shortcuts (keeping original functionality)
         document.addEventListener('keydown', (e) => {
             if (!player || !player.uiController) return;
-            
-            // Ignore if user is typing in an input
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             
             switch (e.code) {
                 case 'Space':
                     e.preventDefault();
-                    if (player.audioEngine.isPlaying && !player.audioEngine.isPaused) {
+                    if (player.audioEngine.isPlaying) {
                         player.uiController.handlePause();
                     } else {
                         player.uiController.handlePlay();
@@ -223,48 +231,8 @@
                     e.preventDefault();
                     player.uiController.handleStop();
                     break;
-                case 'ArrowUp':
-                    e.preventDefault();
-                    if (player.audioEngine) {
-                        const newVolume = Math.min(1, player.audioEngine.volume + 0.1);
-                        player.audioEngine.setVolume(newVolume);
-                    }
-                    break;
-                case 'ArrowDown':
-                    e.preventDefault();
-                    if (player.audioEngine) {
-                        const newVolume = Math.max(0, player.audioEngine.volume - 0.1);
-                        player.audioEngine.setVolume(newVolume);
-                    }
-                    break;
             }
         });
-        
-        // Debug helper
-        window.debugAudio = function() {
-            if (!player || !player.audioEngine) {
-                console.log('Player not initialized');
-                return;
-            }
-            
-            const engine = player.audioEngine;
-            const status = {
-                'Audio Context State': engine.audioContext?.state,
-                'Is Playing': engine.isPlaying,
-                'Is Paused': engine.isPaused,
-                'Current Time': engine.currentTime?.toFixed(2),
-                'Duration': engine.duration?.toFixed(2),
-                'Volume': engine.volume,
-                'Has ChiptuneJS': !!engine.chiptunePlayer,
-                'Has TinySynth': !!engine.tinySynth,
-                'Fallback Mode': engine.fallbackMode
-            };
-            
-            console.table(status);
-            return status;
-        };
-        
-        console.log('💡 Debug helper available - type debugAudio() in console');
     </script>
 </body>
 </html>
