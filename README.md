@@ -82,7 +82,7 @@ npm i
 npm start
 
 
-##  File Structure (Organized Chaos)
+###  File Structure (Organized Chaos)
 
 ```
 fusion-music-player/
