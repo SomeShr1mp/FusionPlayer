@@ -362,13 +362,13 @@ class UIController {
                 const typeInfo = file.type ? file.type.toUpperCase() : 'UNKNOWN';
                 
                 return `
-                    <div class="file-item" data-index="${index}" title="${file.filename}" style="cursor: pointer; padding: 8px; margin: 2px 0; border: 1px solid #004400; background: rgba(0,34,0,0.3);">
-                        <div class="file-main" onclick="uiController.selectTrack(${index})">
+                    <div class="file-item" data-index="${index}" title="${file.filename}" onclick="uiController.selectTrack(${index})">
+                        <div class="file-main">
                             <span class="file-icon">${icon}</span>
                             <span class="file-name">${file.filename}</span>
                             <span class="file-size">(${sizeInfo})</span>
                         </div>
-                        <div class="file-meta" style="font-size: 10px; color: #00aa00; margin-top: 2px;">
+                        <div class="file-meta">
                             <span class="file-type">${typeInfo}</span>
                             ${file.modified ? `<span class="file-date">${new Date(file.modified).toLocaleDateString()}</span>` : ''}
                         </div>

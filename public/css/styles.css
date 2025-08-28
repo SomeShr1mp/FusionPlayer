@@ -4,6 +4,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    scrollbar-color: #00ff00 #000;
 }
 
 body {
@@ -12,8 +13,6 @@ body {
     font-family: 'Share Tech Mono', monospace;
     font-size: 14px;
     line-height: 1.4;
-    overflow: hidden;
-    position: relative;
 }
 
 /* CRT Effect */
@@ -67,18 +66,18 @@ body::after {
 }
 
 .container {
-    height: 100vh;
+    min-height: 100dvh;
     padding: 20px;
     background: radial-gradient(ellipse at center, #001100 0%, #000 70%);
     animation: flicker 5s linear infinite;
     display: flex;
     flex-direction: column;
+    gap: 20px;
 }
 
 .header {
     border: 2px solid #00ff00;
     padding: 10px;
-    margin-bottom: 20px;
     text-align: center;
     background: rgba(0, 255, 0, 0.1);
     box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
@@ -125,11 +124,14 @@ body::after {
 }
 
 .file-item {
-    padding: 3px;
+    padding: 8px;
     cursor: pointer;
     border-left: 3px solid transparent;
     transition: all 0.1s;
     font-size: 12px;
+    margin: 2px 0;
+    border 1px solid #004400;
+    background: rgba(0,34,0,0.3);
 }
 
 .file-item:hover {
@@ -146,6 +148,12 @@ body::after {
     background: rgba(0, 255, 255, 0.2);
     border-left-color: #ffff00;
     animation: pulse 1s ease-in-out infinite alternate;
+}
+
+.file-meta {
+    font-size: 10px;
+    color: #00aa00;
+    margin-top: 2px;
 }
 
 @keyframes pulse {
@@ -263,7 +271,6 @@ body::after {
 .system-info {
     border: 1px solid #00ff00;
     padding: 10px;
-    margin-top: 20px;
     background: rgba(0, 255, 0, 0.05);
     font-size: 11px;
 }
