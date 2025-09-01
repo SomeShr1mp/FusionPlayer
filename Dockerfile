@@ -46,7 +46,7 @@ RUN curl -L -f -o /app/public/js/webaudio-tinysynth.js \
 
 # Download SpessaSynth library
 RUN curl -L -f -o /app/public/js/spessasynth.js \
-    https://cdn.jsdelivr.net/gh/spessasus/SpessaSynth@main/dist/bundle/index.js || \
+    https://cdn.jsdelivr.net/gh/spessasus/spessasynth_lib/index.js || \
     echo "SpessaSynth download failed - will use TinySynth only"
 
 # Download a compact SoundFont (optional, for enhanced MIDI)
