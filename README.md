@@ -36,7 +36,7 @@ Since I'm basically just duct-taping other people's brilliant work together:
 - **[ChiptuneJS](https://github.com/deskjet/chiptune2.js)** by [@deskjet](https://github.com/deskjet) - For making tracker modules actually play instead of just making computer noises
 - **[libOpenMPT](https://lib.openmpt.org/)** - The WASM magic that I definitely don't understand but am grateful exists
 - **[WebAudio-TinySynth](https://github.com/g200kg/webaudio-tinysynth)** by [@g200kg](https://github.com/g200kg) - For MIDI synthesis that doesn't sound like a dying robot
-- **[JS-Synthesizer](https://github.com/jet2jet/js-synthesizer)** by [@jet2jet](https://github.com/jet2jet) - Alternative MIDI synthesis for when the first one doesn't cooperate
+- **[SpessaSynth_Lib](https://github.com/spessasus/spessasynth_lib)** by [@spessasus](https://github.com/spessasus) - Alternative MIDI synthesis for upcoming soundfont support. Please check out their main project, [SpessaSynth](https://github.com/spessasus/SpessaSynth)
 
 ### Technologies I Pretend To Understand
 - **Docker** - Because "it works on my machine" is a valid deployment strategy
