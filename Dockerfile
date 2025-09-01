@@ -44,10 +44,18 @@ RUN curl -L -f -o /app/public/js/webaudio-tinysynth.js \
     https://g200kg.github.io/webaudio-tinysynth/webaudio-tinysynth.js || \
     echo "TinySynth download failed - MIDI support will be limited"
 
+# Download SpessaSynth library
+RUN curl -L -f -o /app/public/js/spessasynth.js \
+    https://cdn.jsdelivr.net/gh/spessasus/SpessaSynth@main/dist/bundle/index.js || \
+    echo "SpessaSynth download failed - will use TinySynth only"
+
 # Download a compact SoundFont (optional, for enhanced MIDI)
 RUN curl -L -f -o /app/public/soundfonts/default.sf2 \
-    https://archive.org/download/free-soundfonts-sf2-2019-04/FluidR3%20GM.sf2 || \
+    https://musical-artifacts.com/artifacts/3001/MS_Basic.sf2 || \
     echo "Default SoundFont download failed - will use TinySynth built-in sounds"
+
+
+
 
 # Note: The openmpt-loader.js file should be created separately and placed in public/js/
 # If it doesn't exist, the application will still work but might have compatibility issues
