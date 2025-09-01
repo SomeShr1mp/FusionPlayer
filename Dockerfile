@@ -51,7 +51,7 @@ RUN curl -L -f -o /app/public/js/spessasynth.js \
 
 # Download a compact SoundFont (optional, for enhanced MIDI)
 RUN curl -L -f -o /app/public/soundfonts/default.sf2 \
-    https://musical-artifacts.com/artifacts/3001/MS_Basic.sf2 || \
+    https://files.maxdevnet.cc/Music/SoundFonts/default.sf2 || \
     echo "Default SoundFont download failed - will use TinySynth built-in sounds"
 
 
