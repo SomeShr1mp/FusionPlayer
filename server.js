@@ -16,7 +16,21 @@ express.static.mime.types['mem'] = 'application/octet-stream';
 // Middleware
 app.use(cors());
 
-// IMPORTANT: Serve static files with proper headers for WASM
+// IMPORTANT: Serve SpessaSynth from node_modules
+app.use('/js/spessasynth', express.static(path.join(__dirname, 'node_modules', 'spessasynth_lib', 'dist'), {
+    setHeaders: (res, filepath) => {
+        if (filepath.endsWith('.wasm')) {
+            res.set('Content-Type', 'application/wasm');
+        } else if (filepath.endsWith('.js')) {
+            res.set('Content-Type', 'application/javascript');
+        }
+        // Allow WASM compilation
+        res.set('Cross-Origin-Embedder-Policy', 'require-corp');
+        res.set('Cross-Origin-Opener-Policy', 'same-origin');
+    }
+}));
+
+// Serve static files with proper headers for WASM
 app.use('/js', express.static(path.join(__dirname, 'public', 'js'), {
     setHeaders: (res, filepath) => {
         if (filepath.endsWith('.mem')) {
@@ -75,6 +89,34 @@ const initDirectories = async () => {
             await log(`Failed to create directory ${dir}: ${error.message}`, 'ERROR');
         }
     }
+};
+
+// Check SpessaSynth installation
+const checkSpessaSynth = async () => {
+    const spessaSynthPath = path.join(__dirname, 'node_modules', 'spessasynth_lib', 'dist');
+    
+    if (!fsSync.existsSync(spessaSynthPath)) {
+        await log('SpessaSynth not found in node_modules. Run: npm install', 'WARN');
+        return false;
+    }
+    
+    // Check for key files
+    const requiredFiles = ['spessasynth.js', 'worklet_processor.min.js'];
+    let allFilesPresent = true;
+    
+    for (const file of requiredFiles) {
+        const filePath = path.join(spessaSynthPath, file);
+        if (!fsSync.existsSync(filePath)) {
+            await log(`SpessaSynth file missing: ${file}`, 'WARN');
+            allFilesPresent = false;
+        }
+    }
+    
+    if (allFilesPresent) {
+        await log('✅ SpessaSynth npm package found and verified');
+    }
+    
+    return allFilesPresent;
 };
 
 // API endpoint to list music files with better error handling
@@ -144,30 +186,45 @@ app.get('/api/music-files', async (req, res) => {
     }
 });
 
-// API endpoint to check WASM support
-app.get('/api/wasm-check', async (req, res) => {
+// API endpoint to check library status including SpessaSynth
+app.get('/api/library-check', async (req, res) => {
     try {
         const jsDir = path.join(__dirname, 'public', 'js');
-        const wasmFiles = {
+        const spessaSynthDir = path.join(__dirname, 'node_modules', 'spessasynth_lib', 'dist');
+        
+        const libraries = {
             'libopenmpt.js': false,
             'libopenmpt.js.mem': false,
             'libopenmpt.wasm': false,
-            'spessasynth.js': false,
+            'chiptune2.js': false,
+            'webaudio-tinysynth.js': false,
             'spessasynth-wrapper.js': false,
-            'webaudio-tinysynth.js': false
+            'spessasynth (npm)': false
         };
         
-        for (const file of Object.keys(wasmFiles)) {
-            if (fsSync.existsSync(path.join(jsDir, file))) {
-                wasmFiles[file] = true;
-                const stats = await fs.stat(path.join(jsDir, file));
-                wasmFiles[file] = { exists: true, size: stats.size };
+        // Check public/js files
+        for (const file of Object.keys(libraries)) {
+            if (file !== 'spessasynth (npm)') {
+                if (fsSync.existsSync(path.join(jsDir, file))) {
+                    const stats = await fs.stat(path.join(jsDir, file));
+                    libraries[file] = { exists: true, size: stats.size };
+                }
             }
         }
         
+        // Check SpessaSynth npm package
+        if (fsSync.existsSync(spessaSynthDir)) {
+            const spessaFiles = await fs.readdir(spessaSynthDir);
+            libraries['spessasynth (npm)'] = {
+                exists: true,
+                files: spessaFiles.filter(f => f.endsWith('.js') || f.endsWith('.wasm')),
+                path: '/js/spessasynth/'
+            };
+        }
+        
         res.json({
-            wasmSupported: true,
-            files: wasmFiles,
+            libraries: libraries,
+            spessaSynthInstalled: !!libraries['spessasynth (npm)'].exists,
             headers: {
                 'Cross-Origin-Embedder-Policy': res.get('Cross-Origin-Embedder-Policy'),
                 'Cross-Origin-Opener-Policy': res.get('Cross-Origin-Opener-Policy')
@@ -264,13 +321,18 @@ app.get('/api/soundfonts', async (req, res) => {
 
 // List available synthesizers
 app.get('/api/synthesizers', (req, res) => {
+    const spessaSynthInstalled = fsSync.existsSync(
+        path.join(__dirname, 'node_modules', 'spessasynth_lib')
+    );
+    
     res.json({
         synthesizers: [
             {
                 id: 'spessasynth',
                 name: 'SpessaSynth',
-                description: 'High-quality MIDI synthesis with SF2/SF3 support',
-                features: ['SoundFont support', 'High quality', '64 voices', 'Full GM/GS support'],
+                description: 'High-quality MIDI synthesis with SF2/SF3 support (npm version)',
+                features: ['SoundFont support', 'High quality', '64+ voices', 'Full GM/GS/XG support', 'Effects'],
+                available: spessaSynthInstalled,
                 recommended: true
             },
             {
@@ -278,10 +340,11 @@ app.get('/api/synthesizers', (req, res) => {
                 name: 'TinySynth',
                 description: 'Lightweight Web Audio synthesizer',
                 features: ['Fast loading', 'Low CPU usage', 'Built-in sounds', 'No downloads needed'],
+                available: true,
                 recommended: false
             }
         ],
-        defaultSynth: 'auto',
+        defaultSynth: spessaSynthInstalled ? 'spessasynth' : 'tinysynth',
         autoSelectCriteria: 'SpessaSynth if available and SoundFont loaded, otherwise TinySynth'
     });
 });
@@ -426,9 +489,14 @@ app.get('/api/synthesizer-status', async (req, res) => {
             }
         }
         
+        const spessaSynthInstalled = fsSync.existsSync(
+            path.join(__dirname, 'node_modules', 'spessasynth_lib')
+        );
+        
         res.json({
             spessasynth: {
-                available: true,
+                available: spessaSynthInstalled,
+                version: spessaSynthInstalled ? require('spessasynth_lib/package.json').version : null,
                 soundFontsAvailable: soundFontCount,
                 defaultSoundFont: defaultSoundFont
             },
@@ -456,10 +524,12 @@ app.get('/health', async (req, res) => {
         const musicDir = path.join(__dirname, 'public', 'music');
         const soundfontsDir = path.join(__dirname, 'public', 'soundfonts');
         const jsDir = path.join(__dirname, 'public', 'js');
+        const spessaSynthNpm = path.join(__dirname, 'node_modules', 'spessasynth_lib');
         
         const musicDirExists = fsSync.existsSync(musicDir);
         const soundfontsDirExists = fsSync.existsSync(soundfontsDir);
         const jsDirExists = fsSync.existsSync(jsDir);
+        const spessaSynthInstalled = fsSync.existsSync(spessaSynthNpm);
         
         let musicFileCount = 0;
         let soundfontCount = 0;
@@ -512,7 +582,8 @@ app.get('/health', async (req, res) => {
             }
         }
         
-        const isHealthy = musicDirExists && soundfontsDirExists && jsDirExists && missingFiles.length === 0;
+        const isHealthy = musicDirExists && soundfontsDirExists && jsDirExists && 
+                         missingFiles.length === 0 && spessaSynthInstalled;
         
         const healthData = { 
             status: isHealthy ? 'healthy' : 'degraded', 
@@ -534,7 +605,7 @@ app.get('/health', async (req, res) => {
             version: '2.2.0',
             engines: {
                 openmpt: missingFiles.includes('libopenmpt.js') ? 'missing' : 'available',
-                spessasynth: missingFiles.includes('spessasynth-wrapper.js') ? 'missing' : 'available',
+                spessasynth: spessaSynthInstalled ? 'installed (npm)' : 'missing',
                 tinysynth: 'built-in'
             }
         };
@@ -555,10 +626,21 @@ app.get('/health', async (req, res) => {
 app.get('/api/system-info', async (req, res) => {
     const musicDir = path.join(__dirname, 'public', 'music');
     const soundfontsDir = path.join(__dirname, 'public', 'soundfonts');
+    const spessaSynthNpm = path.join(__dirname, 'node_modules', 'spessasynth_lib');
     
     const musicStats = fsSync.existsSync(musicDir) ? await fs.readdir(musicDir) : [];
     const soundfontStats = fsSync.existsSync(soundfontsDir) ? 
         (await fs.readdir(soundfontsDir)).filter(f => f.endsWith('.sf2') || f.endsWith('.sf3')) : [];
+    
+    let spessaSynthVersion = 'not installed';
+    if (fsSync.existsSync(spessaSynthNpm)) {
+        try {
+            const packageJson = require('spessasynth_lib/package.json');
+            spessaSynthVersion = packageJson.version;
+        } catch (e) {
+            spessaSynthVersion = 'unknown version';
+        }
+    }
     
     res.json({
         uptime: Math.floor(process.uptime()),
@@ -577,10 +659,11 @@ app.get('/api/system-info', async (req, res) => {
                 formats: ['.mod', '.xm', '.it', '.s3m']
             },
             spessasynth: {
-                status: soundfontStats.length > 0 ? 'available' : 'no_soundfonts',
+                status: spessaSynthVersion !== 'not installed' ? 'available' : 'not installed',
+                version: spessaSynthVersion,
                 formats: ['.mid', '.midi'],
                 soundfonts: soundfontStats.length,
-                features: ['SF2/SF3 support', 'High quality', 'Full GM/GS']
+                features: ['SF2/SF3 support', 'High quality', 'Full GM/GS/XG', 'Effects', 'npm package']
             },
             tinysynth: {
                 status: 'available',
@@ -644,6 +727,12 @@ const startServer = async () => {
         await initDirectories();
         await log('🎵 Initializing Fusion Music Player Server v2.2.0...');
         
+        // Check SpessaSynth installation
+        const spessaSynthReady = await checkSpessaSynth();
+        if (!spessaSynthReady) {
+            await log('⚠️ SpessaSynth not properly installed. Run: npm install', 'WARN');
+        }
+        
         const server = app.listen(PORT, HOST, async () => {
             await log(`🌐 Server running on ${HOST}:${PORT}`);
             await log(`🐳 Docker mode: ${process.env.NODE_ENV === 'production' ? 'YES' : 'NO'}`);
@@ -651,7 +740,7 @@ const startServer = async () => {
             await log(`   Local:    http://localhost:${PORT}`);
             await log(`   Network:  http://${HOST}:${PORT}`);
             await log(`📦 WASM Support: Enabled with proper MIME types`);
-            await log(`🎹 Synthesizers: SpessaSynth + TinySynth`);
+            await log(`🎹 Synthesizers: SpessaSynth (${spessaSynthReady ? 'npm' : 'missing'}) + TinySynth`);
             
             // Log initial file counts
             try {
