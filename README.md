@@ -1,4 +1,4 @@
-#  FUSION MUSIC PLAYER v2.2.0
+#  FUSION MUSIC PLAYER v2.5.0
 *"It works! (Nobody is more surprised than I am)"*
 
 [![Docker](https://img.shields.io/badge/Docker-Surprisingly%20Works-blue)](https://docker.com)
@@ -7,9 +7,9 @@
 
 A retro CRT-style music player that somehow manages to play tracker modules and MIDI files without completely falling apart. Built with the coding skills of someone who definitely Googled "how to JavaScript" more times than they'd care to admit.
 
-![Screenshot](https://files.maxdevnet.cc/Pictures/FUSION%2BMUSIC%2BPLAYER%2Bv2.1.0.png?cache)
+![Screenshot](https://files.maxdevnet.cc/Pictures/FusionPlayer_V2.5.0.png?cache)
 
-##  Features That Actually Work
+##  Features That Actually (sort of) Work
 
 - **Tracker Module Support**: Plays .MOD, .XM, .IT, .S3M files (thanks to people much smarter than me)
 - **MIDI Playback**: Handles .MID/.MIDI files (again, not my code doing the heavy lifting)
@@ -44,10 +44,6 @@ Since I'm basically just duct-taping other people's brilliant work together:
 - **Web Audio API** - The browser API that does all the actual work
 - **CSS Grid & Flexbox** - For layouts that look intentional
 - **Promises/Async/Await** - For handling the chaos asynchronously
-
-### Need to update Docker compose
-
-
 
 ##  Installation (Docker - Recommended for Hiding My Mistakes)
 
@@ -103,6 +99,7 @@ FusionPlayer/
 │       ├── fallback-audio-engine.js  # The one that actually works
 │       ├── ui-controller.js    # UI logic held together with hope
 │       ├── openmpt-loader.js   # PLEASE GOD DO NOT LET THIS BREAK - IT BREAKS EVERYTHING
+│       ├── spessasynth-wrapper.js # The wrapper for the spessasynth_lib webaudio library for midi... currently not working
 │       └── midi-parser.js      # MIDI parsing that mostly works
 ├── docker-compose.yml          # Container config for the brave
 └── Dockerfile                  # Multi-stage build because I read it was "best practice"
@@ -115,7 +112,7 @@ FusionPlayer/
 2. **Select Track**: Click on a file in the list (revolutionary UX)
 3. **Play Music**: Hit the play button and hope for the best
 4. **Control Playback**: Use the buttons that look like they're from 1985
-5. **Adjust Volume**: Slider goes left and right (groundbreaking)
+5. **Adjust Volume**: Slider goes left and right (groundbreaking) - still not working...
 
 ### Supported Formats
 - **Tracker Modules**: .mod, .xm, .it, .s3m (the classics)
