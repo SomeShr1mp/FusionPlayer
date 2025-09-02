@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FUSION MUSIC PLAYER v2.0 (Fallback)</title>
+    <title>FUSION MUSIC PLAYER v2.2 (Fallback)</title>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
     <div class="container">
         <div class="header">
             <div class="title">▓ FUSION MUSIC PLAYER ▓</div>
-            <div class="subtitle">ChiptuneJS + TinySynth :: Fallback Mode :: v2.0.0</div>
+            <div class="subtitle">ChiptuneJS + SpessaSynth/TinySynth :: Fallback Mode :: v2.2.0</div>
         </div>
         
         <div class="main-content">
@@ -25,9 +25,9 @@
                 <div class="upload-area" id="uploadArea">
                     <div>▶ DROP FILES HERE OR CLICK TO UPLOAD ◀</div>
                     <div style="font-size: 10px; margin-top: 5px; color: #00aa00;">
-                        Supported: .MOD .XM .IT .S3M .MID .MIDI .SF2
+                        Supported: .MOD .XM .IT .S3M .MID .MIDI .SF2 .SF3
                     </div>
-                    <input type="file" id="fileInput" style="display: none;" multiple accept=".mod,.xm,.it,.s3m,.mid,.midi,.sf2">
+                    <input type="file" id="fileInput" style="display: none;" multiple accept=".mod,.xm,.it,.s3m,.mid,.midi,.sf2,.sf3">
                 </div>
             </div>
             
@@ -64,6 +64,20 @@
                     </div>
                     <span id="volumeDisplay">50%</span>
                 </div>
+                
+                <!-- MIDI Synthesizer Selection -->
+                <div class="synth-selector" style="margin-top: 15px; padding: 10px; border: 1px solid #00aa00; background: rgba(0,255,0,0.05);">
+                    <h4 style="margin: 0 0 8px 0; color: #00ffff; font-size: 12px;">▶ MIDI SYNTHESIZER</h4>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                        <button class="btn btn-small" id="synthAutoBtn" onclick="selectSynth('auto')" style="padding: 4px 8px; font-size: 10px;">AUTO</button>
+                        <button class="btn btn-small" id="synthSpessaBtn" onclick="selectSynth('spessasynth')" style="padding: 4px 8px; font-size: 10px;">SPESSASYNTH</button>
+                        <button class="btn btn-small" id="synthTinyBtn" onclick="selectSynth('tinysynth')" style="padding: 4px 8px; font-size: 10px;">TINYSYNTH</button>
+                        <button class="btn btn-small" onclick="loadCustomSoundFont()" style="padding: 4px 8px; font-size: 10px;">LOAD SF2</button>
+                    </div>
+                    <div id="synthStatus" style="font-size: 10px; margin-top: 5px; color: #00aa00;">
+                        Initializing synthesizers...
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -75,9 +89,10 @@
 
     <!-- Audio Libraries - Fallback Mode -->
     <script src="/js/libopenmpt.js"></script>
+    <script src="/js/openmpt-loader.js"></script>
     <script src="/js/chiptune2.js"></script>
-    <script src="/js/libfluidsynth-2.3.0.js"></script>
-    <script src="/js/js-synthesizer.js"></script>
+    <script src="/js/spessasynth.js"></script>
+    <script src="/js/spessasynth-wrapper.js"></script>
     <script src="/js/webaudio-tinysynth.js"></script>
     <script src="/js/midi-parser.js"></script>
     
@@ -86,13 +101,13 @@
     <script src="/js/ui-controller.js"></script>
     
     <script>
-        // Enhanced fallback initialization (keeping original UI)
+        // Enhanced fallback initialization with SpessaSynth support
         let player = null;
-        let uiController = null; // Make globally available for onclick handlers
+        let uiController = null;
         
         async function initializeFallbackPlayer() {
             try {
-                console.log('🎵 Fusion Music Player v2.0 - Fallback Mode Initializing...');
+                console.log('🎵 Fusion Music Player v2.2 - Fallback Mode Initializing...');
                 
                 // Wait for libraries to load with timeout
                 let attempts = 0;
@@ -114,9 +129,8 @@
                     Module: typeof Module !== 'undefined',
                     ChiptuneJsConfig: typeof ChiptuneJsConfig !== 'undefined',
                     ChiptuneJsPlayer: typeof ChiptuneJsPlayer !== 'undefined',
-                    JSSynth: typeof JSSynth !== 'undefined', 
+                    SpessaSynth: typeof SpessaSynth !== 'undefined' || typeof SpessaSynthWrapper !== 'undefined',
                     WebAudioTinySynth: typeof WebAudioTinySynth !== 'undefined',
-                    LibFluidSynth: typeof LibFluidSynth !== 'undefined',
                     FallbackAudioEngine: typeof FallbackAudioEngine !== 'undefined',
                     UIController: typeof UIController !== 'undefined',
                     MidiParser: typeof MidiParser !== 'undefined'
@@ -152,6 +166,9 @@
                 const loadedCount = Object.values(libStatus).filter(Boolean).length;
                 const totalCount = Object.keys(libStatus).length;
                 
+                // Update synth status
+                updateSynthStatus();
+                
                 uiController.updateSystemStatus(
                     `🎵 Fallback system ready (${loadedCount}/${totalCount} libraries loaded) ` +
                     `- Running without AudioWorklet support`
@@ -183,6 +200,99 @@
             }
         }
         
+        // Synthesizer selection functions
+        function selectSynth(synthType) {
+            if (player && player.audioEngine) {
+                player.audioEngine.setSynthesizer(synthType);
+                updateSynthStatus();
+                
+                // Update button states
+                document.querySelectorAll('.btn-small').forEach(btn => {
+                    btn.style.background = '';
+                });
+                
+                if (synthType === 'auto') {
+                    document.getElementById('synthAutoBtn').style.background = 'rgba(0,255,0,0.2)';
+                } else if (synthType === 'spessasynth') {
+                    document.getElementById('synthSpessaBtn').style.background = 'rgba(0,255,0,0.2)';
+                } else if (synthType === 'tinysynth') {
+                    document.getElementById('synthTinyBtn').style.background = 'rgba(0,255,0,0.2)';
+                }
+            }
+        }
+        
+        function updateSynthStatus() {
+            if (player && player.audioEngine) {
+                const status = document.getElementById('synthStatus');
+                const activeSynth = player.audioEngine.activeSynth;
+                
+                if (activeSynth === player.audioEngine.spessaSynth) {
+                    status.innerHTML = '<span style="color: #00ff00;">● Active: SpessaSynth (High Quality)</span>';
+                } else if (activeSynth === player.audioEngine.tinySynth) {
+                    status.innerHTML = '<span style="color: #00dd00;">● Active: TinySynth (Lightweight)</span>';
+                } else {
+                    status.innerHTML = '<span style="color: #ff4444;">○ No synthesizer active</span>';
+                }
+                
+                // Show available synthesizers
+                const available = [];
+                if (player.audioEngine.spessaSynth && player.audioEngine.spessaSynth.isReady) {
+                    available.push('SpessaSynth');
+                }
+                if (player.audioEngine.tinySynth) {
+                    available.push('TinySynth');
+                }
+                
+                if (available.length > 0) {
+                    status.innerHTML += `<br><span style="font-size: 9px; color: #007700;">Available: ${available.join(', ')}</span>`;
+                }
+            }
+        }
+        
+        async function loadCustomSoundFont() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.sf2,.sf3';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    // Check if SpessaSynth is available
+                    if (!player || !player.audioEngine || !player.audioEngine.spessaSynth) {
+                        alert('SpessaSynth is not available. Cannot load SoundFonts with TinySynth.');
+                        return;
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('musicFile', file);
+                    
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        
+                        // Load the uploaded SoundFont
+                        await player.audioEngine.loadSoundFont(`/soundfonts/${result.filename}`);
+                        updateSynthStatus();
+                        
+                        if (window.uiController) {
+                            window.uiController.updateSystemStatus(`SoundFont loaded: ${result.filename}`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('SoundFont upload failed:', error);
+                    alert('Failed to load SoundFont: ' + error.message);
+                }
+            };
+            
+            input.click();
+        }
+        
         // Initialize when page loads
         window.addEventListener('load', () => {
             // Add a longer delay for fallback mode to ensure all libraries load
@@ -197,6 +307,22 @@
                         await player.audioEngine.audioContext.resume();
                         console.log('🔊 Audio context activated');
                         player.audioEngine.updateStatus('Audio context activated - ready to play');
+                        
+                        // Check all synthesizer contexts
+                        if (player.audioEngine.tinySynth && player.audioEngine.tinySynth.getAudioContext) {
+                            const synthContext = player.audioEngine.tinySynth.getAudioContext();
+                            if (synthContext && synthContext.state === 'suspended') {
+                                await synthContext.resume();
+                                console.log('🔊 TinySynth context activated');
+                            }
+                        }
+                        
+                        if (player.audioEngine.spessaSynth && player.audioEngine.spessaSynth.audioContext) {
+                            if (player.audioEngine.spessaSynth.audioContext.state === 'suspended') {
+                                await player.audioEngine.spessaSynth.audioContext.resume();
+                                console.log('🔊 SpessaSynth context activated');
+                            }
+                        }
                     } catch (error) {
                         console.error('Failed to activate audio context:', error);
                     }
@@ -206,7 +332,7 @@
             document.removeEventListener('click', activateAudio);
         });
         
-        // Basic keyboard shortcuts (keeping original functionality)
+        // Basic keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (!player || !player.uiController) return;
             
@@ -233,6 +359,9 @@
                     break;
             }
         });
+        
+        // Update synth status periodically
+        setInterval(updateSynthStatus, 2000);
     </script>
 </body>
 </html>

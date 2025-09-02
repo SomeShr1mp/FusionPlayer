@@ -1,108 +1,512 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MIDI Test</title>
+    <title>MIDI Test - SpessaSynth & TinySynth</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ff00;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        button {
+            background: #000;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 16px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        button:hover {
+            background: rgba(0,255,0,0.1);
+        }
+        button:disabled {
+            border-color: #004400;
+            color: #004400;
+            cursor: not-allowed;
+        }
+        #output {
+            background: rgba(0,34,0,0.3);
+            border: 1px solid #004400;
+            padding: 10px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #00ff00; }
+        .error { color: #ff4444; }
+        .warn { color: #ffaa00; }
+        .info { color: #00aaff; }
+        .synth-section {
+            border: 1px solid #00aa00;
+            padding: 15px;
+            margin: 20px 0;
+            background: rgba(0,68,0,0.1);
+        }
+        .synth-section h2 {
+            margin-top: 0;
+            color: #00ffff;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-ready { background: #00ff00; }
+        .status-loading { background: #ffaa00; }
+        .status-error { background: #ff4444; }
+    </style>
 </head>
 <body>
-    <h1>MIDI Synthesizer Test</h1>
-    <button id="testTinySynth">Test TinySynth</button>
-    <button id="testJSSynth">Test JS-Synthesizer</button>
+    <h1>🎹 MIDI Synthesizer Test Suite</h1>
+    <p>Test SpessaSynth and TinySynth MIDI capabilities</p>
+    
+    <div class="synth-section">
+        <h2><span id="spessaStatus" class="status-indicator status-error"></span>SpessaSynth (High Quality)</h2>
+        <button id="initSpessa">Initialize SpessaSynth</button>
+        <button id="testSpessaNotes" disabled>Test Notes</button>
+        <button id="testSpessaChord" disabled>Test Chord</button>
+        <button id="testSpessaScale" disabled>Test Scale</button>
+        <button id="loadSpessaSF2" disabled>Load SoundFont</button>
+        <button id="testSpessaMidi" disabled>Play MIDI File</button>
+        <button id="stopSpessa" disabled>Stop</button>
+        <div id="spessaInfo" style="font-size: 11px; margin-top: 10px; color: #00aa00;"></div>
+    </div>
+    
+    <div class="synth-section">
+        <h2><span id="tinyStatus" class="status-indicator status-error"></span>TinySynth (Lightweight)</h2>
+        <button id="initTiny">Initialize TinySynth</button>
+        <button id="testTinyNotes" disabled>Test Notes</button>
+        <button id="testTinyChord" disabled>Test Chord</button>
+        <button id="testTinyScale" disabled>Test Scale</button>
+        <button id="testTinyMidi" disabled>Play MIDI File</button>
+        <button id="stopTiny" disabled>Stop</button>
+        <div id="tinyInfo" style="font-size: 11px; margin-top: 10px; color: #00aa00;"></div>
+    </div>
+    
+    <div class="synth-section">
+        <h2>Comparison Test</h2>
+        <button id="compareInit">Initialize Both</button>
+        <button id="compareChord" disabled>Play Same Chord</button>
+        <button id="compareMidi" disabled>Play Same MIDI</button>
+        <button id="compareStop" disabled>Stop All</button>
+    </div>
+    
+    <h2>Console Output</h2>
     <div id="output"></div>
 
-    <script src="/js/libfluidsynth-2.3.0.js"></script>
-    <script src="/js/js-synthesizer.js"></script>
+    <!-- Load synthesizer libraries -->
+    <script src="/js/spessasynth.js"></script>
+    <script src="/js/spessasynth-wrapper.js"></script>
     <script src="/js/webaudio-tinysynth.js"></script>
+    <script src="/js/midi-parser.js"></script>
     
     <script>
         const output = document.getElementById('output');
+        let spessaSynth = null;
+        let tinySynth = null;
+        let audioContext = null;
+        let midiFiles = [];
         
-        function log(message) {
-            output.innerHTML += `<p>${new Date().toLocaleTimeString()}: ${message}</p>`;
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('p');
+            entry.className = type;
+            entry.innerHTML = `[${timestamp}] ${message}`;
+            output.appendChild(entry);
+            output.scrollTop = output.scrollHeight;
             console.log(message);
         }
         
-        // Test TinySynth
-        document.getElementById('testTinySynth').addEventListener('click', async () => {
+        function updateStatus(synthType, status) {
+            const indicator = document.getElementById(`${synthType}Status`);
+            indicator.className = `status-indicator status-${status}`;
+        }
+        
+        // SpessaSynth initialization
+        document.getElementById('initSpessa').addEventListener('click', async () => {
             try {
-                log('Testing WebAudio-TinySynth...');
+                log('Initializing SpessaSynth...', 'info');
+                updateStatus('spessa', 'loading');
                 
-                if (typeof WebAudioTinySynth === 'undefined') {
-                    log('❌ WebAudio-TinySynth not loaded');
-                    return;
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                    }
                 }
                 
-                const synth = new WebAudioTinySynth({quality: 1, useReverb: 1});
-                log('✅ TinySynth created');
+                if (typeof SpessaSynthWrapper === 'undefined') {
+                    throw new Error('SpessaSynthWrapper not loaded');
+                }
                 
-                // Play a simple C major chord
-                synth.send([0x90, 60, 100], 0); // Note On C4
-                synth.send([0x90, 64, 100], 0); // Note On E4
-                synth.send([0x90, 67, 100], 0); // Note On G4
+                spessaSynth = new SpessaSynthWrapper();
+                await spessaSynth.initialize(audioContext);
                 
-                setTimeout(() => {
-                    synth.send([0x80, 60, 100], 0); // Note Off C4
-                    synth.send([0x80, 64, 100], 0); // Note Off E4
-                    synth.send([0x80, 67, 100], 0); // Note Off G4
-                    log('✅ TinySynth chord played');
-                }, 1000);
+                updateStatus('spessa', 'ready');
+                log('✅ SpessaSynth initialized successfully', 'success');
+                
+                // Enable buttons
+                document.getElementById('testSpessaNotes').disabled = false;
+                document.getElementById('testSpessaChord').disabled = false;
+                document.getElementById('testSpessaScale').disabled = false;
+                document.getElementById('loadSpessaSF2').disabled = false;
+                document.getElementById('testSpessaMidi').disabled = false;
+                document.getElementById('stopSpessa').disabled = false;
+                
+                // Show info
+                const info = spessaSynth.getInfo();
+                document.getElementById('spessaInfo').textContent = 
+                    `Ready | SoundFont: ${info.soundFont} | Voices: ${info.voiceCount}`;
                 
             } catch (error) {
-                log('❌ TinySynth error: ' + error.message);
+                updateStatus('spessa', 'error');
+                log(`❌ SpessaSynth initialization failed: ${error.message}`, 'error');
             }
         });
         
-        // Test JS-Synthesizer
-        document.getElementById('testJSSynth').addEventListener('click', async () => {
-            try {
-                log('Testing JS-Synthesizer...');
+        // SpessaSynth test notes
+        document.getElementById('testSpessaNotes').addEventListener('click', () => {
+            if (!spessaSynth) return;
+            
+            log('Playing test notes on SpessaSynth...', 'info');
+            
+            // Play C4
+            spessaSynth.send([0x90, 60, 100], 0);
+            setTimeout(() => spessaSynth.send([0x80, 60, 0], 0), 500);
+            
+            // Play E4
+            setTimeout(() => {
+                spessaSynth.send([0x90, 64, 100], 0);
+                setTimeout(() => spessaSynth.send([0x80, 64, 0], 0), 500);
+            }, 600);
+            
+            // Play G4
+            setTimeout(() => {
+                spessaSynth.send([0x90, 67, 100], 0);
+                setTimeout(() => spessaSynth.send([0x80, 67, 0], 0), 500);
+            }, 1200);
+        });
+        
+        // SpessaSynth test chord
+        document.getElementById('testSpessaChord').addEventListener('click', () => {
+            if (!spessaSynth) return;
+            
+            log('Playing C major chord on SpessaSynth...', 'info');
+            
+            // Play C major chord
+            spessaSynth.send([0x90, 60, 100], 0); // C4
+            spessaSynth.send([0x90, 64, 100], 0); // E4
+            spessaSynth.send([0x90, 67, 100], 0); // G4
+            
+            setTimeout(() => {
+                spessaSynth.send([0x80, 60, 0], 0);
+                spessaSynth.send([0x80, 64, 0], 0);
+                spessaSynth.send([0x80, 67, 0], 0);
+            }, 1500);
+        });
+        
+        // SpessaSynth test scale
+        document.getElementById('testSpessaScale').addEventListener('click', () => {
+            if (!spessaSynth) return;
+            
+            log('Playing C major scale on SpessaSynth...', 'info');
+            
+            const scale = [60, 62, 64, 65, 67, 69, 71, 72]; // C major scale
+            scale.forEach((note, i) => {
+                setTimeout(() => {
+                    spessaSynth.send([0x90, note, 100], 0);
+                    setTimeout(() => spessaSynth.send([0x80, note, 0], 0), 400);
+                }, i * 500);
+            });
+        });
+        
+        // Load SoundFont for SpessaSynth
+        document.getElementById('loadSpessaSF2').addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.sf2,.sf3';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file || !spessaSynth) return;
                 
-                if (typeof JSSynth === 'undefined') {
-                    log('❌ JS-Synthesizer not loaded');
+                try {
+                    log(`Loading SoundFont: ${file.name}...`, 'info');
+                    const arrayBuffer = await file.arrayBuffer();
+                    await spessaSynth.loadSoundFont(arrayBuffer);
+                    log(`✅ SoundFont loaded: ${file.name}`, 'success');
+                    
+                    // Update info
+                    const info = spessaSynth.getInfo();
+                    document.getElementById('spessaInfo').textContent = 
+                        `Ready | SoundFont: ${file.name} | Voices: ${info.voiceCount}`;
+                    
+                } catch (error) {
+                    log(`❌ SoundFont loading failed: ${error.message}`, 'error');
+                }
+            };
+            
+            input.click();
+        });
+        
+        // Play MIDI file with SpessaSynth
+        document.getElementById('testSpessaMidi').addEventListener('click', async () => {
+            if (!spessaSynth) return;
+            
+            try {
+                // Get list of MIDI files
+                if (midiFiles.length === 0) {
+                    const response = await fetch('/api/music-files');
+                    const files = await response.json();
+                    midiFiles = files.filter(f => f.type === 'midi');
+                }
+                
+                if (midiFiles.length === 0) {
+                    log('No MIDI files available', 'warn');
                     return;
                 }
                 
-                await JSSynth.waitForReady();
-                log('✅ JS-Synthesizer ready');
+                const midiFile = midiFiles[0];
+                log(`Loading MIDI: ${midiFile.filename}...`, 'info');
                 
-                const synth = new JSSynth.Synthesizer();
-                await synth.init(44100);
-                log('✅ JS-Synthesizer initialized');
+                await spessaSynth.loadMIDIFromUrl(`/music/${midiFile.filename}`);
+                spessaSynth.play();
                 
-                // Try to load SoundFont
-                try {
-                    const response = await fetch('/soundfonts/default.sf2');
-                    if (response.ok) {
-                        const soundFontData = await response.arrayBuffer();
-                        await synth.loadSoundFont(new Uint8Array(soundFontData));
-                        log('✅ SoundFont loaded');
-                    } else {
-                        log('⚠️ SoundFont not found, using built-in sounds');
-                    }
-                } catch (sfError) {
-                    log('⚠️ SoundFont loading failed: ' + sfError.message);
-                }
-                
-                // Play test notes
-                synth.noteOn(0, 60, 100); // C4
-                synth.noteOn(0, 64, 100); // E4
-                synth.noteOn(0, 67, 100); // G4
-                
-                setTimeout(() => {
-                    synth.noteOff(0, 60);
-                    synth.noteOff(0, 64);
-                    synth.noteOff(0, 67);
-                    log('✅ JS-Synthesizer chord played');
-                }, 1000);
+                log(`✅ Playing: ${midiFile.filename}`, 'success');
                 
             } catch (error) {
-                log('❌ JS-Synthesizer error: ' + error.message);
+                log(`❌ MIDI playback failed: ${error.message}`, 'error');
             }
+        });
+        
+        // Stop SpessaSynth
+        document.getElementById('stopSpessa').addEventListener('click', () => {
+            if (spessaSynth) {
+                spessaSynth.stop();
+                log('SpessaSynth stopped', 'info');
+            }
+        });
+        
+        // TinySynth initialization
+        document.getElementById('initTiny').addEventListener('click', async () => {
+            try {
+                log('Initializing TinySynth...', 'info');
+                updateStatus('tiny', 'loading');
+                
+                if (typeof WebAudioTinySynth === 'undefined') {
+                    throw new Error('WebAudioTinySynth not loaded');
+                }
+                
+                tinySynth = new WebAudioTinySynth({
+                    quality: 1,
+                    useReverb: 0,
+                    voices: 32
+                });
+                
+                updateStatus('tiny', 'ready');
+                log('✅ TinySynth initialized successfully', 'success');
+                
+                // Enable buttons
+                document.getElementById('testTinyNotes').disabled = false;
+                document.getElementById('testTinyChord').disabled = false;
+                document.getElementById('testTinyScale').disabled = false;
+                document.getElementById('testTinyMidi').disabled = false;
+                document.getElementById('stopTiny').disabled = false;
+                
+                // Show info
+                document.getElementById('tinyInfo').textContent = 
+                    'Ready | Built-in GM sounds | 32 voices';
+                
+            } catch (error) {
+                updateStatus('tiny', 'error');
+                log(`❌ TinySynth initialization failed: ${error.message}`, 'error');
+            }
+        });
+        
+        // TinySynth test notes
+        document.getElementById('testTinyNotes').addEventListener('click', () => {
+            if (!tinySynth) return;
+            
+            log('Playing test notes on TinySynth...', 'info');
+            
+            // Play C4
+            tinySynth.send([0x90, 60, 100], 0);
+            setTimeout(() => tinySynth.send([0x80, 60, 0], 0), 500);
+            
+            // Play E4
+            setTimeout(() => {
+                tinySynth.send([0x90, 64, 100], 0);
+                setTimeout(() => tinySynth.send([0x80, 64, 0], 0), 500);
+            }, 600);
+            
+            // Play G4
+            setTimeout(() => {
+                tinySynth.send([0x90, 67, 100], 0);
+                setTimeout(() => tinySynth.send([0x80, 67, 0], 0), 500);
+            }, 1200);
+        });
+        
+        // TinySynth test chord
+        document.getElementById('testTinyChord').addEventListener('click', () => {
+            if (!tinySynth) return;
+            
+            log('Playing C major chord on TinySynth...', 'info');
+            
+            // Play C major chord
+            tinySynth.send([0x90, 60, 100], 0); // C4
+            tinySynth.send([0x90, 64, 100], 0); // E4
+            tinySynth.send([0x90, 67, 100], 0); // G4
+            
+            setTimeout(() => {
+                tinySynth.send([0x80, 60, 0], 0);
+                tinySynth.send([0x80, 64, 0], 0);
+                tinySynth.send([0x80, 67, 0], 0);
+            }, 1500);
+        });
+        
+        // TinySynth test scale
+        document.getElementById('testTinyScale').addEventListener('click', () => {
+            if (!tinySynth) return;
+            
+            log('Playing C major scale on TinySynth...', 'info');
+            
+            const scale = [60, 62, 64, 65, 67, 69, 71, 72]; // C major scale
+            scale.forEach((note, i) => {
+                setTimeout(() => {
+                    tinySynth.send([0x90, note, 100], 0);
+                    setTimeout(() => tinySynth.send([0x80, note, 0], 0), 400);
+                }, i * 500);
+            });
+        });
+        
+        // Play MIDI file with TinySynth
+        document.getElementById('testTinyMidi').addEventListener('click', async () => {
+            if (!tinySynth) return;
+            
+            try {
+                // Get list of MIDI files
+                if (midiFiles.length === 0) {
+                    const response = await fetch('/api/music-files');
+                    const files = await response.json();
+                    midiFiles = files.filter(f => f.type === 'midi');
+                }
+                
+                if (midiFiles.length === 0) {
+                    log('No MIDI files available', 'warn');
+                    return;
+                }
+                
+                const midiFile = midiFiles[0];
+                log(`Loading MIDI: ${midiFile.filename}...`, 'info');
+                
+                tinySynth.loadMIDIUrl(`/music/${midiFile.filename}`);
+                
+                setTimeout(() => {
+                    tinySynth.playMIDI();
+                    log(`✅ Playing: ${midiFile.filename}`, 'success');
+                }, 500);
+                
+            } catch (error) {
+                log(`❌ MIDI playback failed: ${error.message}`, 'error');
+            }
+        });
+        
+        // Stop TinySynth
+        document.getElementById('stopTiny').addEventListener('click', () => {
+            if (tinySynth) {
+                tinySynth.stopMIDI();
+                for (let ch = 0; ch < 16; ch++) {
+                    tinySynth.send([0xB0 | ch, 123, 0], 0);
+                }
+                log('TinySynth stopped', 'info');
+            }
+        });
+        
+        // Comparison tests
+        document.getElementById('compareInit').addEventListener('click', async () => {
+            log('Initializing both synthesizers...', 'info');
+            
+            // Initialize both
+            document.getElementById('initSpessa').click();
+            document.getElementById('initTiny').click();
+            
+            setTimeout(() => {
+                if (spessaSynth && tinySynth) {
+                    document.getElementById('compareChord').disabled = false;
+                    document.getElementById('compareMidi').disabled = false;
+                    document.getElementById('compareStop').disabled = false;
+                    log('✅ Both synthesizers ready for comparison', 'success');
+                }
+            }, 2000);
+        });
+        
+        document.getElementById('compareChord').addEventListener('click', () => {
+            if (!spessaSynth || !tinySynth) return;
+            
+            log('Playing same chord on both synthesizers...', 'info');
+            
+            // Play on SpessaSynth
+            log('SpessaSynth playing...', 'info');
+            spessaSynth.send([0x90, 60, 100], 0);
+            spessaSynth.send([0x90, 64, 100], 0);
+            spessaSynth.send([0x90, 67, 100], 0);
+            
+            setTimeout(() => {
+                spessaSynth.send([0x80, 60, 0], 0);
+                spessaSynth.send([0x80, 64, 0], 0);
+                spessaSynth.send([0x80, 67, 0], 0);
+                
+                // Play on TinySynth
+                log('TinySynth playing...', 'info');
+                tinySynth.send([0x90, 60, 100], 0);
+                tinySynth.send([0x90, 64, 100], 0);
+                tinySynth.send([0x90, 67, 100], 0);
+                
+                setTimeout(() => {
+                    tinySynth.send([0x80, 60, 0], 0);
+                    tinySynth.send([0x80, 64, 0], 0);
+                    tinySynth.send([0x80, 67, 0], 0);
+                }, 1500);
+            }, 1500);
+        });
+        
+        document.getElementById('compareStop').addEventListener('click', () => {
+            if (spessaSynth) spessaSynth.stop();
+            if (tinySynth) {
+                tinySynth.stopMIDI();
+                for (let ch = 0; ch < 16; ch++) {
+                    tinySynth.send([0xB0 | ch, 123, 0], 0);
+                }
+            }
+            log('All synthesizers stopped', 'info');
         });
         
         // Log library status on load
         window.addEventListener('load', () => {
-            log(`Libraries loaded: TinySynth=${typeof WebAudioTinySynth !== 'undefined'}, JSSynth=${typeof JSSynth !== 'undefined'}, FluidSynth=${typeof LibFluidSynth !== 'undefined'}`);
+            log(`Libraries loaded:`, 'info');
+            log(`- SpessaSynth: ${SpessaSynthWrapper.isAvailable() ? '✅' : '❌'}`, 
+                SpessaSynthWrapper.isAvailable() ? 'success' : 'error');
+            log(`- TinySynth: ${typeof WebAudioTinySynth !== 'undefined' ? '✅' : '❌'}`,
+                typeof WebAudioTinySynth !== 'undefined' ? 'success' : 'error');
+            log(`- MidiParser: ${typeof MidiParser !== 'undefined' ? '✅' : '❌'}`,
+                typeof MidiParser !== 'undefined' ? 'success' : 'error');
         });
+        
+        // Handle user activation
+        document.addEventListener('click', async () => {
+            if (audioContext && audioContext.state === 'suspended') {
+                await audioContext.resume();
+                log('Audio context activated', 'info');
+            }
+        }, { once: true });
     </script>
 </body>
 </html>
