@@ -71,6 +71,15 @@ docker-compose up -d --build
 git clone https://github.com/SomeShr1mp/FusionPlayer.git
 cd FusionPlayer
 
+#Pull the necessary libraries, may need to source your own soundfont, please be sure to be in the root project folder for this
+curl -L -f -o public/js/libopenmpt.js https://cdn.jsdelivr.net/gh/deskjet/chiptune2.js@master/libopenmpt.js 
+curl -L -f -o public/js/libopenmpt.js.mem https://cdn.jsdelivr.net/gh/deskjet/chiptune2.js@master/libopenmpt.js.mem
+curl -L -f -o public/js/chiptune2.js https://cdn.jsdelivr.net/gh/deskjet/chiptune2.js@master/chiptune2.js
+curl -L -f -o public/js/webaudio-tinysynth.js https://g200kg.github.io/webaudio-tinysynth/webaudio-tinysynth.js
+
+
+
+
 # Now time for NPM to do it's thing
 npm i
 

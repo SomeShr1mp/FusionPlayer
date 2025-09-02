@@ -58,6 +58,11 @@
       "version": "2.3.0",
       "formats": [".mid", ".midi"],
       "description": "High-quality MIDI synthesis with SoundFont support"
+    },
+    "spessasynth_lib": {
+      "version": ">=2.26.0",
+      "formats": [".mid", ".midi", ".sf2", ".sf3"],
+      "description": "Higher-quality MIDI synthesis with SoundFont support"
     }
   },
   "browser-requirements": {
