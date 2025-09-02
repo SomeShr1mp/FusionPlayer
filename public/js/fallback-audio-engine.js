@@ -31,7 +31,7 @@ class FallbackAudioEngine {
         // ScriptProcessor for monitoring (if needed)
         this.monitorNode = null;
         
-        console.log('🎵 FallbackAudioEngine v2.2 initialized with SpessaSynth support');
+        console.log('🎵 FallbackAudioEngine v2.5 initialized with SpessaSynth support');
     }
     
     setUIController(uiController) {

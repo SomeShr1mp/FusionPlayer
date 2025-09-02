@@ -41,7 +41,7 @@ class AudioEngine {
             firstPlayTime: 0
         };
         
-        console.log('🎵 AudioEngine v2.2 initialized with SpessaSynth support');
+        console.log('🎵 AudioEngine v2.5 initialized with SpessaSynth support');
     }
     
     setUIController(uiController) {
