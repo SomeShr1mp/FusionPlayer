@@ -2,6 +2,7 @@ services:
   music-player:
     build: .
     container_name: Fusion
+    image: docker.io/fusionplayer
     ports:
       - "3043:3000"
     volumes:
@@ -42,13 +43,6 @@ services:
         reservations:
           memory: 512M
           cpus: '0.5'
-    networks:
-      - billy
-
-networks:
-   billy:
-    name: 'billy'
-    external: true
 
 # Named volumes for proper permission handling
 volumes:
