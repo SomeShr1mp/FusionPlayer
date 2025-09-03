@@ -1,5 +1,6 @@
 #  FUSION MUSIC PLAYER v2.5.0
 *"It works! (Nobody is more surprised than I am)"*
+**Please use release version 2.2.0 since it actually works... 2.5.X is cursed**
 
 [![Docker](https://img.shields.io/badge/Docker-Surprisingly%20Works-blue)](https://docker.com)
 [![JavaScript](https://img.shields.io/badge/JavaScript-Held%20Together%20With%20Duct%20Tape-yellow)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
