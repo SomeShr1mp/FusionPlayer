@@ -1,4 +1,5 @@
 # Use Node.js LTS Alpine for smaller image size
+# Use the current one if you actually want this thing to work lol
 FROM node:current-alpine
 
 # Set working directory
@@ -19,7 +20,7 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only-production && \
+RUN npm ci && \
     npm cache clean --force
 
 # Copy application code
