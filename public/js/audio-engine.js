@@ -547,8 +547,8 @@ class EnhancedAudioEngine {
         }
         
         // TinySynth volume control
-        if (this.tinySynth && this.tinySynth.setMasterVol) {
-            this.tinySynth.setMasterVol(Math.floor(this.volume * 127));
+        if (this.tinySynth) {
+            this.tinySynth.setMasterVol(Math.floor(this.volume));
         }
         
         if (this.uiController) {
