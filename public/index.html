@@ -71,6 +71,20 @@
                     <span id="volumeDisplay">50%</span>
                 </div>
                 
+		<!-- MIDI Synthesizer Selection -->
+                <div class="synth-selector" style="margin-top: 15px; padding: 10px; border: 1px solid #00aa00; background: rgba(0,255,0,0.05);">
+                    <h4 style="margin: 0 0 8px 0; color: #00ffff; font-size: 12px;">▶ MIDI SYNTHESIZER</h4>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                        <button class="btn btn-small" id="synthAutoBtn" onclick="selectSynth('auto')" style="padding: 4px 8px; font-size: 10px;">AUTO</button>
+                        <button class="btn btn-small" id="synthSpessaBtn" onclick="selectSynth('spessasynth')" style="padding: 4px 8px; font-size: 10px;">SPESSASYNTH</button>
+                        <button class="btn btn-small" id="synthTinyBtn" onclick="selectSynth('tinysynth')" style="padding: 4px 8px; font-size: 10px;">TINYSYNTH</button>
+                        <button class="btn btn-small" onclick="loadCustomSoundFont()" style="padding: 4px 8px; font-size: 10px;">LOAD SF2</button>
+                    </div>
+                    <div id="synthStatus" style="font-size: 10px; margin-top: 5px; color: #00aa00;">
+                        Initializing synthesizers...
+                    </div>
+                </div>		
+
                 <div class="synth-info" id="synthInfo" style="margin-top: 10px; padding: 5px; border: 1px solid #004400; background: rgba(0,34,0,0.3); font-size: 10px;">
                     <div>Engine: <span id="currentSynthEngine">Loading...</span></div>
                     <div>SoundFont: <span id="currentSoundFont">None</span></div>
@@ -205,6 +219,99 @@
                     window.uiController.showError('Initialization failed: ' + error.message);
                 }
             }
+        }
+
+	// Synthesizer selection functions
+        function selectSynth(synthType) {
+            if (player && player.audioEngine) {
+                player.audioEngine.setSynthesizer(synthType);
+                updateSynthStatus();
+                
+                // Update button states
+                document.querySelectorAll('.btn-small').forEach(btn => {
+                    btn.style.background = '';
+                });
+                
+                if (synthType === 'auto') {
+                    document.getElementById('synthAutoBtn').style.background = 'rgba(0,255,0,0.2)';
+                } else if (synthType === 'spessasynth') {
+                    document.getElementById('synthSpessaBtn').style.background = 'rgba(0,255,0,0.2)';
+                } else if (synthType === 'tinysynth') {
+                    document.getElementById('synthTinyBtn').style.background = 'rgba(0,255,0,0.2)';
+                }
+            }
+        }
+
+	function updateSynthStatus() {
+            if (player && player.audioEngine) {
+                const status = document.getElementById('synthStatus');
+                const activeSynth = player.audioEngine.activeSynth;
+                
+                if (activeSynth === player.audioEngine.spessaSynth) {
+                    status.innerHTML = '<span style="color: #00ff00;">● Active: SpessaSynth (High Quality)</span>';
+                } else if (activeSynth === player.audioEngine.tinySynth) {
+                    status.innerHTML = '<span style="color: #00dd00;">● Active: TinySynth (Lightweight)</span>';
+                } else {
+                    status.innerHTML = '<span style="color: #ff4444;">○ No synthesizer active</span>';
+                }
+                
+                // Show available synthesizers
+                const available = [];
+                if (player.audioEngine.spessaSynth && player.audioEngine.spessaSynth.isReady) {
+                    available.push('SpessaSynth');
+                }
+                if (player.audioEngine.tinySynth) {
+                    available.push('TinySynth');
+                }
+                
+                if (available.length > 0) {
+                    status.innerHTML += `<br><span style="font-size: 9px; color: #007700;">Available: ${available.join(', ')}</span>`;
+                }
+            }
+        }
+
+	async function loadCustomSoundFont() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.sf2,.sf3';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    // Check if SpessaSynth is available
+                    if (!player || !player.audioEngine || !player.audioEngine.spessaSynth) {
+                        alert('SpessaSynth is not available. Cannot load SoundFonts with TinySynth.');
+                        return;
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('musicFile', file);
+                    
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        
+                        // Load the uploaded SoundFont
+                        await player.audioEngine.loadSoundFont(`/soundfonts/${result.filename}`);
+                        updateSynthStatus();
+                        
+                        if (window.uiController) {
+                            window.uiController.updateSystemStatus(`SoundFont loaded: ${result.filename}`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('SoundFont upload failed:', error);
+                    alert('Failed to load SoundFont: ' + error.message);
+                }
+            };
+            
+            input.click();
         }
         
         // Initialize when page loads
