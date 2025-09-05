@@ -1,108 +1,746 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>MIDI Test</title>
-</head>
-<body>
-    <h1>MIDI Synthesizer Test</h1>
-    <button id="testTinySynth">Test TinySynth</button>
-    <button id="testJSSynth">Test JS-Synthesizer</button>
-    <div id="output"></div>
-
-    <script src="/js/libfluidsynth-2.3.0.js"></script>
-    <script src="/js/js-synthesizer.js"></script>
-    <script src="/js/webaudio-tinysynth.js"></script>
-    
-    <script>
-        const output = document.getElementById('output');
-        
-        function log(message) {
-            output.innerHTML += `<p>${new Date().toLocaleTimeString()}: ${message}</p>`;
-            console.log(message);
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FUSION MIDI Test Console v2.3.5</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ff00;
+            padding: 20px;
+            margin: 0;
+            line-height: 1.4;
         }
         
-        // Test TinySynth
-        document.getElementById('testTinySynth').addEventListener('click', async () => {
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border: 2px solid #00ff00;
+            padding: 15px;
+            background: rgba(0, 255, 0, 0.1);
+        }
+        
+        .header h1 {
+            margin: 0;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        .header .version {
+            color: #00aa00;
+            margin-top: 5px;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+            border: 1px solid #004400;
+            padding: 15px;
+            background: rgba(0, 68, 0, 0.1);
+        }
+        
+        .section h2 {
+            margin-top: 0;
+            color: #00dd00;
+            border-bottom: 1px solid #006600;
+            padding-bottom: 10px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: #000;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 16px;
+            margin: 2px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+        
+        button:active {
+            background: rgba(0, 255, 0, 0.2);
+        }
+        
+        button:disabled {
+            border-color: #004400;
+            color: #004400;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 10px;
+            border: 1px solid #004400;
+            background: rgba(0, 34, 0, 0.3);
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        
+        .status.success {
+            border-color: #00aa00;
+            background: rgba(0, 170, 0, 0.2);
+        }
+        
+        .status.error {
+            border-color: #aa0000;
+            background: rgba(170, 0, 0, 0.2);
+            color: #ff4444;
+        }
+        
+        .status.warning {
+            border-color: #aa7700;
+            background: rgba(170, 119, 0, 0.2);
+            color: #ffaa00;
+        }
+        
+        select {
+            background: #000;
+            border: 1px solid #00aa00;
+            color: #00ff00;
+            padding: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            width: 100%;
+            margin: 5px 0;
+        }
+        
+        .soundfont-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #004400;
+        }
+        
+        .output {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #004400;
+            padding: 10px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 11px;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        
+        .log-success { color: #00ff00; }
+        .log-error { color: #ff4444; }
+        .log-warn { color: #ffaa00; }
+        .log-info { color: #00aa00; }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.5; }
+        }
+        
+        .blinking {
+            animation: blink 1s infinite;
+        }
+        
+        /* CRT Effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(transparent 50%, rgba(0, 255, 0, 0.03) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎹 FUSION MIDI TEST CONSOLE</h1>
+        <div class="version">TinySynth + Midicube Testing :: v2.3.5</div>
+    </div>
+    
+    <div class="section">
+        <h2>🎼 TinySynth Testing</h2>
+        <div class="controls">
+            <button onclick="initTinySynth()">🔧 Initialize TinySynth</button>
+            <button onclick="testTinySynthChord()">🎵 Test Chord</button>
+            <button onclick="testTinySynthScale()">🎶 Test Scale</button>
+            <button onclick="stopTinySynth()">⏹️ Stop All</button>
+        </div>
+        <div id="tinySynthStatus" class="status">TinySynth not initialized</div>
+    </div>
+    
+    <div class="section">
+        <h2>🎹 Midicube Testing</h2>
+        <div class="controls">
+            <button onclick="initMidicube()">🔧 Initialize Midicube</button>
+            <button onclick="testMidicubeChord()">🎵 Test Chord</button>
+            <button onclick="testMidicubeScale()">🎶 Test Scale</button>
+            <button onclick="stopMidicube()">⏹️ Stop All</button>
+        </div>
+        <div id="midicubeStatus" class="status">Midicube not initialized</div>
+        
+        <div class="soundfont-section">
+            <h3>SoundFont Management</h3>
+            <div class="controls">
+                <button onclick="loadSoundfontsList()">📂 Load SoundFonts</button>
+                <button onclick="loadSelectedSoundfont()">📥 Load Selected</button>
+            </div>
+            <select id="soundfontSelect">
+                <option value="">Select a SoundFont...</option>
+            </select>
+            <div id="soundfontStatus" class="status">No SoundFonts loaded</div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>🎭 Comparison Tests</h2>
+        <div class="controls">
+            <button onclick="compareChords()">🎼 Compare Chords</button>
+            <button onclick="compareArpeggios()">🎹 Compare Arpeggios</button>
+            <button onclick="testLatency()">⚡ Test Latency</button>
+            <button onclick="clearOutput()">🗑️ Clear Log</button>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>📊 System Information</h2>
+        <div class="controls">
+            <button onclick="checkLibraries()">📚 Check Libraries</button>
+            <button onclick="checkAudioContext()">🔊 Check Audio Context</button>
+            <button onclick="runFullDiagnostics()">🔍 Full Diagnostics</button>
+        </div>
+    </div>
+    
+    <div class="output" id="output">
+        <div class="log-info">MIDI Test Console v2.3.5 initialized. Click buttons to start testing.</div>
+    </div>
+
+    <!-- Load required libraries -->
+    <script src="/js/webaudio-tinysynth.js"></script>
+    <script src="/node_modules/midicube/dist/midicube.min.js"></script>
+    
+    <script>
+        // Global variables
+        let audioContext = null;
+        let tinySynth = null;
+        let midicube = null;
+        let soundfontsList = [];
+        let currentSoundfont = null;
+        
+        // Logging function
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const output = document.getElementById('output');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `[${timestamp}] ${message}`;
+            output.appendChild(entry);
+            output.scrollTop = output.scrollHeight;
+            
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function updateStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+                element.className = `status ${type}`;
+            }
+        }
+        
+        // Initialize audio context
+        async function initAudioContext() {
+            if (!audioContext) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) {
+                    log('Web Audio API not supported', 'error');
+                    return false;
+                }
+                
+                audioContext = new AudioContext();
+                
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                log(`Audio context initialized (${audioContext.state})`, 'success');
+                return true;
+            }
+            return true;
+        }
+        
+        // TinySynth functions
+        async function initTinySynth() {
             try {
-                log('Testing WebAudio-TinySynth...');
+                log('Initializing TinySynth...', 'info');
                 
                 if (typeof WebAudioTinySynth === 'undefined') {
-                    log('❌ WebAudio-TinySynth not loaded');
-                    return;
+                    throw new Error('WebAudioTinySynth library not loaded');
                 }
                 
-                const synth = new WebAudioTinySynth({quality: 1, useReverb: 1});
-                log('✅ TinySynth created');
+                await initAudioContext();
                 
-                // Play a simple C major chord
-                synth.send([0x90, 60, 100], 0); // Note On C4
-                synth.send([0x90, 64, 100], 0); // Note On E4
-                synth.send([0x90, 67, 100], 0); // Note On G4
+                tinySynth = new WebAudioTinySynth({
+                    quality: 1,
+                    useReverb: 0,
+                    voices: 32
+                });
                 
-                setTimeout(() => {
-                    synth.send([0x80, 60, 100], 0); // Note Off C4
-                    synth.send([0x80, 64, 100], 0); // Note Off E4
-                    synth.send([0x80, 67, 100], 0); // Note Off G4
-                    log('✅ TinySynth chord played');
-                }, 1000);
+                updateStatus('tinySynthStatus', 'TinySynth initialized successfully', 'success');
+                log('TinySynth initialized successfully', 'success');
                 
             } catch (error) {
-                log('❌ TinySynth error: ' + error.message);
+                updateStatus('tinySynthStatus', `TinySynth error: ${error.message}`, 'error');
+                log(`TinySynth initialization failed: ${error.message}`, 'error');
             }
-        });
+        }
         
-        // Test JS-Synthesizer
-        document.getElementById('testJSSynth').addEventListener('click', async () => {
+        async function testTinySynthChord() {
+            if (!tinySynth) {
+                await initTinySynth();
+            }
+            
+            if (!tinySynth) {
+                log('TinySynth not available', 'error');
+                return;
+            }
+            
             try {
-                log('Testing JS-Synthesizer...');
+                log('Playing C major chord with TinySynth...', 'info');
                 
-                if (typeof JSSynth === 'undefined') {
-                    log('❌ JS-Synthesizer not loaded');
-                    return;
-                }
-                
-                await JSSynth.waitForReady();
-                log('✅ JS-Synthesizer ready');
-                
-                const synth = new JSSynth.Synthesizer();
-                await synth.init(44100);
-                log('✅ JS-Synthesizer initialized');
-                
-                // Try to load SoundFont
-                try {
-                    const response = await fetch('/soundfonts/default.sf2');
-                    if (response.ok) {
-                        const soundFontData = await response.arrayBuffer();
-                        await synth.loadSoundFont(new Uint8Array(soundFontData));
-                        log('✅ SoundFont loaded');
-                    } else {
-                        log('⚠️ SoundFont not found, using built-in sounds');
-                    }
-                } catch (sfError) {
-                    log('⚠️ SoundFont loading failed: ' + sfError.message);
-                }
-                
-                // Play test notes
-                synth.noteOn(0, 60, 100); // C4
-                synth.noteOn(0, 64, 100); // E4
-                synth.noteOn(0, 67, 100); // G4
+                // Play C major chord
+                tinySynth.send([0x90, 60, 100], 0); // C4
+                tinySynth.send([0x90, 64, 100], 0); // E4
+                tinySynth.send([0x90, 67, 100], 0); // G4
                 
                 setTimeout(() => {
-                    synth.noteOff(0, 60);
-                    synth.noteOff(0, 64);
-                    synth.noteOff(0, 67);
-                    log('✅ JS-Synthesizer chord played');
-                }, 1000);
+                    tinySynth.send([0x80, 60, 0], 0);
+                    tinySynth.send([0x80, 64, 0], 0);
+                    tinySynth.send([0x80, 67, 0], 0);
+                    log('TinySynth chord test completed', 'success');
+                }, 2000);
                 
             } catch (error) {
-                log('❌ JS-Synthesizer error: ' + error.message);
+                log(`TinySynth chord test failed: ${error.message}`, 'error');
             }
+        }
+        
+        async function testTinySynthScale() {
+            if (!tinySynth) {
+                await initTinySynth();
+            }
+            
+            if (!tinySynth) {
+                log('TinySynth not available', 'error');
+                return;
+            }
+            
+            try {
+                log('Playing C major scale with TinySynth...', 'info');
+                
+                const scale = [60, 62, 64, 65, 67, 69, 71, 72]; // C major scale
+                let delay = 0;
+                
+                scale.forEach((note, index) => {
+                    setTimeout(() => {
+                        tinySynth.send([0x90, note, 100], 0);
+                        setTimeout(() => {
+                            tinySynth.send([0x80, note, 0], 0);
+                        }, 300);
+                    }, delay);
+                    delay += 400;
+                });
+                
+                setTimeout(() => {
+                    log('TinySynth scale test completed', 'success');
+                }, delay + 500);
+                
+            } catch (error) {
+                log(`TinySynth scale test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function stopTinySynth() {
+            if (tinySynth) {
+                try {
+                    // Send all notes off on all channels
+                    for (let ch = 0; ch < 16; ch++) {
+                        tinySynth.send([0xB0 | ch, 123, 0], 0); // All notes off
+                        tinySynth.send([0xB0 | ch, 120, 0], 0); // All sound off
+                    }
+                    log('TinySynth stopped (all notes off)', 'info');
+                } catch (error) {
+                    log(`Error stopping TinySynth: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        // Midicube functions
+        async function initMidicube() {
+            try {
+                log('Initializing Midicube...', 'info');
+                
+                if (typeof MIDICube === 'undefined') {
+                    throw new Error('MIDICube library not loaded');
+                }
+                
+                await initAudioContext();
+                
+                midicube = new MIDICube({
+                    audioContext: audioContext
+                });
+                
+                updateStatus('midicubeStatus', 'Midicube initialized (no SoundFont loaded)', 'warning');
+                log('Midicube initialized successfully', 'success');
+                
+            } catch (error) {
+                updateStatus('midicubeStatus', `Midicube error: ${error.message}`, 'error');
+                log(`Midicube initialization failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testMidicubeChord() {
+            if (!midicube) {
+                await initMidicube();
+            }
+            
+            if (!midicube) {
+                log('Midicube not available', 'error');
+                return;
+            }
+            
+            try {
+                log('Playing C major chord with Midicube...', 'info');
+                
+                if (!currentSoundfont) {
+                    log('Warning: No SoundFont loaded - chord may be silent', 'warn');
+                }
+                
+                // Play C major chord
+                if (midicube.noteOn && midicube.noteOff) {
+                    midicube.noteOn(0, 60, 100); // C4
+                    midicube.noteOn(0, 64, 100); // E4
+                    midicube.noteOn(0, 67, 100); // G4
+                    
+                    setTimeout(() => {
+                        midicube.noteOff(0, 60);
+                        midicube.noteOff(0, 64);
+                        midicube.noteOff(0, 67);
+                        log('Midicube chord test completed', 'success');
+                    }, 2000);
+                } else {
+                    throw new Error('Midicube note methods not available');
+                }
+                
+            } catch (error) {
+                log(`Midicube chord test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testMidicubeScale() {
+            if (!midicube) {
+                await initMidicube();
+            }
+            
+            if (!midicube) {
+                log('Midicube not available', 'error');
+                return;
+            }
+            
+            try {
+                log('Playing C major scale with Midicube...', 'info');
+                
+                if (!currentSoundfont) {
+                    log('Warning: No SoundFont loaded - scale may be silent', 'warn');
+                }
+                
+                const scale = [60, 62, 64, 65, 67, 69, 71, 72]; // C major scale
+                let delay = 0;
+                
+                if (midicube.noteOn && midicube.noteOff) {
+                    scale.forEach((note, index) => {
+                        setTimeout(() => {
+                            midicube.noteOn(0, note, 100);
+                            setTimeout(() => {
+                                midicube.noteOff(0, note);
+                            }, 300);
+                        }, delay);
+                        delay += 400;
+                    });
+                    
+                    setTimeout(() => {
+                        log('Midicube scale test completed', 'success');
+                    }, delay + 500);
+                } else {
+                    throw new Error('Midicube note methods not available');
+                }
+                
+            } catch (error) {
+                log(`Midicube scale test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function stopMidicube() {
+            if (midicube) {
+                try {
+                    if (midicube.stop) {
+                        midicube.stop();
+                    } else if (midicube.allNotesOff) {
+                        midicube.allNotesOff();
+                    } else {
+                        // Try to stop all notes manually
+                        for (let ch = 0; ch < 16; ch++) {
+                            for (let note = 0; note < 128; note++) {
+                                if (midicube.noteOff) {
+                                    midicube.noteOff(ch, note);
+                                }
+                            }
+                        }
+                    }
+                    log('Midicube stopped (all notes off)', 'info');
+                } catch (error) {
+                    log(`Error stopping Midicube: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        // SoundFont functions
+        async function loadSoundfontsList() {
+            try {
+                log('Loading SoundFonts list...', 'info');
+                
+                const response = await fetch('/api/soundfonts');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                soundfontsList = await response.json();
+                
+                const select = document.getElementById('soundfontSelect');
+                select.innerHTML = '<option value="">Select a SoundFont...</option>';
+                
+                soundfontsList.forEach(sf => {
+                    const option = document.createElement('option');
+                    option.value = sf.filename;
+                    option.textContent = `${sf.filename} (${sf.displaySize})`;
+                    select.appendChild(option);
+                });
+                
+                updateStatus('soundfontStatus', `Found ${soundfontsList.length} SoundFonts`, 'success');
+                log(`Found ${soundfontsList.length} SoundFont files`, 'success');
+                
+            } catch (error) {
+                updateStatus('soundfontStatus', `Error loading SoundFonts: ${error.message}`, 'error');
+                log(`SoundFonts loading failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadSelectedSoundfont() {
+            const select = document.getElementById('soundfontSelect');
+            const selectedSoundfont = select.value;
+            
+            if (!selectedSoundfont) {
+                log('Please select a SoundFont first', 'warn');
+                return;
+            }
+            
+            if (!midicube) {
+                await initMidicube();
+            }
+            
+            if (!midicube) {
+                log('Midicube not initialized', 'error');
+                return;
+            }
+            
+            try {
+                log(`Loading SoundFont: ${selectedSoundfont}...`, 'info');
+                updateStatus('soundfontStatus', `Loading ${selectedSoundfont}...`, 'warning');
+                
+                const response = await fetch(`/soundfonts/${selectedSoundfont}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch SoundFont: ${response.statusText}`);
+                }
+                
+                const soundfontData = await response.arrayBuffer();
+                
+                if (midicube.loadSoundfont) {
+                    await midicube.loadSoundfont(soundfontData);
+                } else {
+                    throw new Error('Midicube SoundFont loading method not available');
+                }
+                
+                currentSoundfont = selectedSoundfont;
+                updateStatus('soundfontStatus', `Loaded: ${selectedSoundfont}`, 'success');
+                updateStatus('midicubeStatus', `Midicube ready with ${selectedSoundfont}`, 'success');
+                log(`SoundFont loaded successfully: ${selectedSoundfont}`, 'success');
+                
+            } catch (error) {
+                updateStatus('soundfontStatus', `Loading failed: ${error.message}`, 'error');
+                log(`SoundFont loading failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Comparison tests
+        async function compareChords() {
+            log('Starting chord comparison test...', 'info');
+            
+            // Test TinySynth first
+            log('Playing chord with TinySynth...', 'info');
+            await testTinySynthChord();
+            
+            // Wait a bit, then test Midicube
+            setTimeout(async () => {
+                log('Playing chord with Midicube...', 'info');
+                await testMidicubeChord();
+                
+                setTimeout(() => {
+                    log('Chord comparison test completed', 'success');
+                }, 3000);
+            }, 3000);
+        }
+        
+        async function compareArpeggios() {
+            log('Starting arpeggio comparison test...', 'info');
+            
+            // Test TinySynth first
+            log('Playing arpeggio with TinySynth...', 'info');
+            await testTinySynthScale();
+            
+            // Wait a bit, then test Midicube
+            setTimeout(async () => {
+                log('Playing arpeggio with Midicube...', 'info');
+                await testMidicubeScale();
+                
+                setTimeout(() => {
+                    log('Arpeggio comparison test completed', 'success');
+                }, 4000);
+            }, 4000);
+        }
+        
+        async function testLatency() {
+            log('Testing latency for both synthesizers...', 'info');
+            
+            const testLatencyFor = async (synth, name) => {
+                const startTime = performance.now();
+                
+                if (name === 'TinySynth' && tinySynth) {
+                    tinySynth.send([0x90, 60, 100], 0);
+                    setTimeout(() => tinySynth.send([0x80, 60, 0], 0), 100);
+                } else if (name === 'Midicube' && midicube && midicube.noteOn) {
+                    midicube.noteOn(0, 60, 100);
+                    setTimeout(() => midicube.noteOff(0, 60), 100);
+                }
+                
+                const endTime = performance.now();
+                const latency = endTime - startTime;
+                
+                log(`${name} latency: ${latency.toFixed(2)}ms`, 'info');
+            };
+            
+            if (tinySynth) {
+                await testLatencyFor(tinySynth, 'TinySynth');
+            }
+            
+            setTimeout(async () => {
+                if (midicube) {
+                    await testLatencyFor(midicube, 'Midicube');
+                }
+                log('Latency testing completed', 'success');
+            }, 500);
+        }
+        
+        // System information
+        function checkLibraries() {
+            log('Checking library availability...', 'info');
+            
+            const libs = {
+                'WebAudioTinySynth': typeof WebAudioTinySynth !== 'undefined',
+                'MIDICube': typeof MIDICube !== 'undefined',
+                'Web Audio API': !!(window.AudioContext || window.webkitAudioContext),
+                'WebAssembly': typeof WebAssembly !== 'undefined'
+            };
+            
+            Object.entries(libs).forEach(([name, available]) => {
+                log(`${name}: ${available ? '✓ Available' : '✗ Not available'}`, available ? 'success' : 'error');
+            });
+        }
+        
+        function checkAudioContext() {
+            log('Checking audio context status...', 'info');
+            
+            if (audioContext) {
+                log(`Audio Context State: ${audioContext.state}`, 'info');
+                log(`Sample Rate: ${audioContext.sampleRate}Hz`, 'info');
+                log(`Base Latency: ${audioContext.baseLatency?.toFixed(4) || 'unknown'}s`, 'info');
+                log(`Output Latency: ${audioContext.outputLatency?.toFixed(4) || 'unknown'}s`, 'info');
+            } else {
+                log('Audio context not initialized', 'warn');
+            }
+        }
+        
+        async function runFullDiagnostics() {
+            log('Running full diagnostics...', 'info');
+            
+            checkLibraries();
+            checkAudioContext();
+            
+            // Test initialization
+            if (!tinySynth) {
+                await initTinySynth();
+            }
+            
+            if (!midicube) {
+                await initMidicube();
+            }
+            
+            if (soundfontsList.length === 0) {
+                await loadSoundfontsList();
+            }
+            
+            log('Full diagnostics completed', 'success');
+        }
+        
+        function clearOutput() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<div class="log-info">Output cleared.</div>';
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            log('MIDI Test Console v2.3.5 loaded', 'success');
+            log('Click Initialize buttons to test each synthesizer', 'info');
+            
+            // Auto-load SoundFonts list
+            setTimeout(() => {
+                loadSoundfontsList();
+            }, 1000);
         });
         
-        // Log library status on load
-        window.addEventListener('load', () => {
-            log(`Libraries loaded: TinySynth=${typeof WebAudioTinySynth !== 'undefined'}, JSSynth=${typeof JSSynth !== 'undefined'}, FluidSynth=${typeof LibFluidSynth !== 'undefined'}`);
-        });
+        // User activation for audio context
+        document.addEventListener('click', async () => {
+            if (audioContext && audioContext.state === 'suspended') {
+                await audioContext.resume();
+                log('Audio context activated', 'success');
+            }
+        }, { once: true });
+        
     </script>
 </body>
 </html>

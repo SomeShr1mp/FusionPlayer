@@ -45,6 +45,16 @@ RUN curl -L -f -o /app/public/js/webaudio-tinysynth.js \
     https://g200kg.github.io/webaudio-tinysynth/webaudio-tinysynth.js || \
     echo "TinySynth download failed - MIDI support will be limited"
 
+
+# Verify Midicube installation
+RUN if [ -f /app/node_modules/midicube/package.json ]; then \
+        echo "✅ Midicube installed successfully"; \
+        ls -la /app/node_modules/midicube/dist/ || echo "Midicube dist folder not found"; \
+    else \
+        echo "X Midicube not found in node_modules X"; \
+    fi
+
+
 # Download a compact SoundFont (optional, for enhanced MIDI)
 RUN curl -L -f -o /app/public/soundfonts/default.sf2 \
     https://files.maxdevnet.cc/Music/SoundFonts/default.sf2 || \

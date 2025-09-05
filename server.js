@@ -32,6 +32,18 @@ app.use('/js', express.static(path.join(__dirname, 'public', 'js'), {
     }
 }));
 
+// Serve node_modules for Midicube
+app.use('/node_modules', express.static(path.join(__dirname, 'node_modules'), {
+    setHeaders: (res, filepath) => {
+        if (filepath.endsWith('.js')) {
+            res.set('Content-Type', 'application/javascript');
+        }
+        // Allow WASM compilation for Midicube
+        res.set('Cross-Origin-Embedder-Policy', 'require-corp');
+        res.set('Cross-Origin-Opener-Policy', 'same-origin');
+    }
+}));
+
 // Serve other static files
 app.use(express.static('public'));
 app.use(express.json());
@@ -89,7 +101,7 @@ app.get('/api/music-files', async (req, res) => {
         }
         
         const files = await fs.readdir(musicDir);
-        const allowedExtensions = ['.mod', '.xm', '.it', '.s3m', '.mid', '.midi', '.sf2'];
+        const allowedExtensions = ['.mod', '.xm', '.it', '.s3m', '.mid', '.midi'];
         
         const musicFiles = [];
         
@@ -104,8 +116,7 @@ app.get('/api/music-files', async (req, res) => {
                         filename: file,
                         size: stats.size,
                         modified: stats.mtime,
-                        type: ['.mod', '.xm', '.it', '.s3m'].includes(ext) ? 'tracker' : 
-                              ext === '.sf2' ? 'soundfont' : 'midi',
+                        type: ['.mod', '.xm', '.it', '.s3m'].includes(ext) ? 'tracker' : 'midi',
                         displaySize: formatFileSize(stats.size)
                     });
                 } catch (statError) {
@@ -115,8 +126,7 @@ app.get('/api/music-files', async (req, res) => {
                             filename: file,
                             size: 0,
                             modified: new Date(),
-                            type: ['.mod', '.xm', '.it', '.s3m'].includes(ext) ? 'tracker' : 
-                                  ext === '.sf2' ? 'soundfont' : 'midi',
+                            type: ['.mod', '.xm', '.it', '.s3m'].includes(ext) ? 'tracker' : 'midi',
                             displaySize: 'Permission denied',
                             error: 'EACCES'
                         });
@@ -137,29 +147,94 @@ app.get('/api/music-files', async (req, res) => {
     }
 });
 
+// API endpoint to list soundfonts
+app.get('/api/soundfonts', async (req, res) => {
+    try {
+        const soundfontsDir = path.join(__dirname, 'public', 'soundfonts');
+        
+        if (!fsSync.existsSync(soundfontsDir)) {
+            await log('SoundFonts directory does not exist, creating it...', 'WARN');
+            await fs.mkdir(soundfontsDir, { recursive: true });
+            return res.json([]);
+        }
+        
+        const files = await fs.readdir(soundfontsDir);
+        const soundfonts = [];
+        
+        for (const file of files) {
+            if (path.extname(file).toLowerCase() === '.sf2') {
+                try {
+                    const filePath = path.join(soundfontsDir, file);
+                    const stats = await fs.stat(filePath);
+                    
+                    soundfonts.push({
+                        filename: file,
+                        size: stats.size,
+                        displaySize: formatFileSize(stats.size),
+                        modified: stats.mtime
+                    });
+                } catch (statError) {
+                    if (statError.code === 'EACCES') {
+                        await log(`Permission denied accessing SoundFont ${file}`, 'WARN');
+                        soundfonts.push({
+                            filename: file,
+                            size: 0,
+                            displaySize: 'Permission denied',
+                            modified: new Date(),
+                            error: 'EACCES'
+                        });
+                    } else {
+                        await log(`Error getting stats for SoundFont ${file}: ${statError.message}`, 'WARN');
+                    }
+                }
+            }
+        }
+        
+        soundfonts.sort((a, b) => a.filename.localeCompare(b.filename));
+        await log(`Found ${soundfonts.length} SoundFont files`);
+        res.json(soundfonts);
+        
+    } catch (error) {
+        await log(`Error listing soundfonts: ${error.message}`, 'ERROR');
+        res.status(500).json({ error: 'Unable to list soundfonts' });
+    }
+});
+
 // API endpoint to check WASM support
 app.get('/api/wasm-check', async (req, res) => {
     try {
         const jsDir = path.join(__dirname, 'public', 'js');
+        const nodeModulesDir = path.join(__dirname, 'node_modules');
+        
         const wasmFiles = {
             'libopenmpt.js': false,
             'libopenmpt.js.mem': false,
             'libopenmpt.wasm': false,
-            'libfluidsynth-2.3.0.js': false,
-            'libfluidsynth-2.3.0.wasm': false
+            'midicube': false
         };
         
-        for (const file of Object.keys(wasmFiles)) {
+        // Check OpenMPT files
+        for (const file of ['libopenmpt.js', 'libopenmpt.js.mem', 'libopenmpt.wasm']) {
             if (fsSync.existsSync(path.join(jsDir, file))) {
-                wasmFiles[file] = true;
                 const stats = await fs.stat(path.join(jsDir, file));
                 wasmFiles[file] = { exists: true, size: stats.size };
+            }
+        }
+        
+        // Check Midicube
+        const midicubePath = path.join(nodeModulesDir, 'midicube');
+        if (fsSync.existsSync(midicubePath)) {
+            const midicubeDistPath = path.join(midicubePath, 'dist', 'midicube.min.js');
+            if (fsSync.existsSync(midicubeDistPath)) {
+                const stats = await fs.stat(midicubeDistPath);
+                wasmFiles['midicube'] = { exists: true, size: stats.size, path: 'node_modules/midicube/dist/midicube.min.js' };
             }
         }
         
         res.json({
             wasmSupported: true,
             files: wasmFiles,
+            midicubeSupported: !!wasmFiles['midicube'],
             headers: {
                 'Cross-Origin-Embedder-Policy': res.get('Cross-Origin-Embedder-Policy'),
                 'Cross-Origin-Opener-Policy': res.get('Cross-Origin-Opener-Policy')
@@ -189,8 +264,7 @@ app.get('/api/file-info/:filename', async (req, res) => {
             size: stats.size,
             displaySize: formatFileSize(stats.size),
             modified: stats.mtime,
-            type: ['.mod', '.xm', '.it', '.s3m'].includes(ext) ? 'tracker' : 
-                  ext === '.sf2' ? 'soundfont' : 'midi'
+            type: ['.mod', '.xm', '.it', '.s3m'].includes(ext) ? 'tracker' : 'midi'
         });
         
     } catch (error) {
@@ -199,41 +273,29 @@ app.get('/api/file-info/:filename', async (req, res) => {
     }
 });
 
-// API endpoint to list soundfonts
-app.get('/api/soundfonts', async (req, res) => {
+// API endpoint to get SoundFont info
+app.get('/api/soundfont-info/:filename', async (req, res) => {
     try {
-        const soundfontsDir = path.join(__dirname, 'public', 'soundfonts');
+        const filename = req.params.filename;
+        const filePath = path.join(__dirname, 'public', 'soundfonts', filename);
         
-        if (!fsSync.existsSync(soundfontsDir)) {
-            return res.json([]);
+        if (!fsSync.existsSync(filePath)) {
+            return res.status(404).json({ error: 'SoundFont not found' });
         }
         
-        const files = await fs.readdir(soundfontsDir);
-        const soundfonts = [];
+        const stats = await fs.stat(filePath);
         
-        for (const file of files) {
-            if (path.extname(file).toLowerCase() === '.sf2') {
-                try {
-                    const filePath = path.join(soundfontsDir, file);
-                    const stats = await fs.stat(filePath);
-                    
-                    soundfonts.push({
-                        filename: file,
-                        size: stats.size,
-                        displaySize: formatFileSize(stats.size),
-                        modified: stats.mtime
-                    });
-                } catch (statError) {
-                    await log(`Error getting stats for ${file}: ${statError.message}`, 'WARN');
-                }
-            }
-        }
-        
-        res.json(soundfonts);
+        res.json({
+            filename,
+            size: stats.size,
+            displaySize: formatFileSize(stats.size),
+            modified: stats.mtime,
+            type: 'soundfont'
+        });
         
     } catch (error) {
-        await log(`Error listing soundfonts: ${error.message}`, 'ERROR');
-        res.status(500).json({ error: 'Unable to list soundfonts' });
+        await log(`Error getting SoundFont info: ${error.message}`, 'ERROR');
+        res.status(500).json({ error: 'Unable to get SoundFont info' });
     }
 });
 
@@ -288,13 +350,13 @@ app.post('/api/upload', upload.single('musicFile'), async (req, res) => {
 });
 
 // Delete file endpoint
-app.delete('/api/delete/:filename', async (req, res) => {
+app.delete('/api/delete/:type/:filename', async (req, res) => {
     try {
         const filename = req.params.filename;
-        const ext = path.extname(filename).toLowerCase();
+        const type = req.params.type;
         
         let filePath;
-        if (ext === '.sf2') {
+        if (type === 'soundfont') {
             filePath = path.join(__dirname, 'public', 'soundfonts', filename);
         } else {
             filePath = path.join(__dirname, 'public', 'music', filename);
@@ -305,7 +367,7 @@ app.delete('/api/delete/:filename', async (req, res) => {
         }
         
         await fs.unlink(filePath);
-        await log(`File deleted: ${filename}`);
+        await log(`File deleted: ${filename} (${type})`);
         res.json({ message: 'File deleted successfully' });
         
     } catch (error) {
@@ -341,6 +403,47 @@ app.post('/api/set-default-soundfont/:filename', async (req, res) => {
     }
 });
 
+// Midicube status endpoint
+app.get('/api/midicube-status', async (req, res) => {
+    try {
+        const midicubePath = path.join(__dirname, 'node_modules', 'midicube');
+        const midicubeDistPath = path.join(midicubePath, 'dist', 'midicube.min.js');
+        const packageJsonPath = path.join(midicubePath, 'package.json');
+        
+        let midicubeInfo = {
+            installed: false,
+            version: null,
+            distExists: false,
+            distSize: 0
+        };
+        
+        if (fsSync.existsSync(midicubePath)) {
+            midicubeInfo.installed = true;
+            
+            if (fsSync.existsSync(packageJsonPath)) {
+                try {
+                    const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'));
+                    midicubeInfo.version = packageJson.version;
+                } catch (err) {
+                    console.warn('Could not read Midicube package.json');
+                }
+            }
+            
+            if (fsSync.existsSync(midicubeDistPath)) {
+                midicubeInfo.distExists = true;
+                const stats = await fs.stat(midicubeDistPath);
+                midicubeInfo.distSize = stats.size;
+            }
+        }
+        
+        res.json(midicubeInfo);
+        
+    } catch (error) {
+        await log(`Error checking Midicube status: ${error.message}`, 'ERROR');
+        res.status(500).json({ error: 'Unable to check Midicube status' });
+    }
+});
+
 // Serve main page with proper CORS headers for WASM
 app.get('/', (req, res) => {
     res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
@@ -354,10 +457,12 @@ app.get('/health', async (req, res) => {
         const musicDir = path.join(__dirname, 'public', 'music');
         const soundfontsDir = path.join(__dirname, 'public', 'soundfonts');
         const jsDir = path.join(__dirname, 'public', 'js');
+        const midicubePath = path.join(__dirname, 'node_modules', 'midicube');
         
         const musicDirExists = fsSync.existsSync(musicDir);
         const soundfontsDirExists = fsSync.existsSync(soundfontsDir);
         const jsDirExists = fsSync.existsSync(jsDir);
+        const midicubeExists = fsSync.existsSync(midicubePath);
         
         let musicFileCount = 0;
         let soundfontCount = 0;
@@ -394,10 +499,11 @@ app.get('/health', async (req, res) => {
         
         // Check for critical JS and WASM files
         const criticalFiles = [
-            'audio-worklet-processor.js',
             'libopenmpt.js',
             'libopenmpt.js.mem',
-            'chiptune2.js'
+            'chiptune2.js',
+            'webaudio-tinysynth.js',
+            'openmpt-loader.js'
         ];
         
         const missingFiles = [];
@@ -426,10 +532,11 @@ app.get('/health', async (req, res) => {
                 jsFiles: jsFileCount
             },
             missingCriticalFiles: missingFiles,
-            version: '2.0.0',
+            version: '2.3.5',
             engines: {
                 openmpt: missingFiles.includes('libopenmpt.js') ? 'missing' : 'available',
-                audioWorklet: missingFiles.includes('audio-worklet-processor.js') ? 'missing' : 'available'
+                tinysynth: missingFiles.includes('webaudio-tinysynth.js') ? 'missing' : 'available',
+                midicube: midicubeExists ? 'available' : 'missing'
             }
         };
         
@@ -470,9 +577,15 @@ app.get('/api/system-info', async (req, res) => {
                 status: 'available',
                 formats: ['.mod', '.xm', '.it', '.s3m']
             },
-            fluidsynth: {
+            tinysynth: {
+                status: 'available',
+                formats: ['.mid', '.midi'],
+                description: 'Built-in General MIDI synthesizer'
+            },
+            midicube: {
                 status: soundfontStats.length > 0 ? 'available' : 'no_soundfonts',
                 formats: ['.mid', '.midi'],
+                description: 'SoundFont-based MIDI synthesizer',
                 soundfonts: soundfontStats.length
             }
         }
@@ -530,7 +643,7 @@ async function getDiskUsage(dir) {
 const startServer = async () => {
     try {
         await initDirectories();
-        await log('🎵 Initializing Fusion Music Player Server v2.0...');
+        await log('🎵 Initializing Fusion Music Player Server v2.5...');
         
         const server = app.listen(PORT, HOST, async () => {
             await log(`🌐 Server running on ${HOST}:${PORT}`);
@@ -539,6 +652,7 @@ const startServer = async () => {
             await log(`   Local:    http://localhost:${PORT}`);
             await log(`   Network:  http://${HOST}:${PORT}`);
             await log(`📦 WASM Support: Enabled with proper MIME types`);
+            await log(`🎹 Midicube Support: Enabled`);
             
             // Log initial file counts
             try {
@@ -547,13 +661,24 @@ const startServer = async () => {
                 
                 if (fsSync.existsSync(musicDir)) {
                     const musicFiles = await fs.readdir(musicDir);
-                    await log(`💿 Found ${musicFiles.length} files in music directory`);
+                    const musicCount = musicFiles.filter(f => 
+                        ['.mod', '.xm', '.it', '.s3m', '.mid', '.midi'].includes(path.extname(f).toLowerCase())
+                    ).length;
+                    await log(`💿 Found ${musicCount} music files`);
                 }
                 
                 if (fsSync.existsSync(soundfontsDir)) {
                     const soundfontFiles = await fs.readdir(soundfontsDir);
                     const sf2Files = soundfontFiles.filter(f => f.endsWith('.sf2'));
                     await log(`🎼 Found ${sf2Files.length} SoundFont files`);
+                }
+                
+                // Check Midicube installation
+                const midicubePath = path.join(__dirname, 'node_modules', 'midicube');
+                if (fsSync.existsSync(midicubePath)) {
+                    await log(`🎹 Midicube: Installed and available`);
+                } else {
+                    await log(`🎹 Midicube: Not installed - run 'npm install' to enable SoundFont support`, 'WARN');
                 }
                 
             } catch (error) {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FUSION MUSIC PLAYER v2.3.0</title>
+    <title>FUSION MUSIC PLAYER v2.3.5</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
@@ -11,7 +11,7 @@
     <div class="container">
         <div class="header">
             <div class="title">▓ FUSION MUSIC PLAYER ▓</div>
-            <div class="subtitle">Web Audio Direct Mode :: ChiptuneJS + TinySynth :: v2.3.0</div>
+            <div class="subtitle">Web Audio Direct Mode :: ChiptuneJS + TinySynth + Midicube :: v2.3.5</div>
         </div>
         
         <div class="main-content">
@@ -26,9 +26,9 @@
                 <div class="upload-area" id="uploadArea">
                     <div>▶ DROP FILES HERE OR CLICK TO UPLOAD ◀</div>
                     <div style="font-size: 10px; margin-top: 5px; color: #00aa00;">
-                        Supported: .MOD .XM .IT .S3M .MID .MIDI
+                        Supported: .MOD .XM .IT .S3M .MID .MIDI .SF2
                     </div>
-                    <input type="file" id="fileInput" style="display: none;" multiple accept=".mod,.xm,.it,.s3m,.mid,.midi">
+                    <input type="file" id="fileInput" style="display: none;" multiple accept=".mod,.xm,.it,.s3m,.mid,.midi,.sf2">
                 </div>
             </div>
             
@@ -58,6 +58,26 @@
                     <button class="btn" id="nextBtn">NEXT ►►</button>
                 </div>
                 
+                <div class="synth-selector-container">
+                    <div class="synth-selector-label">MIDI SYNTH:</div>
+                    <div class="synth-selector" id="synthSelector">
+                        <div class="synth-option active" data-synth="tinysynth">
+                            <div class="synth-name">TinySynth</div>
+                            <div class="synth-desc">Built-in GM</div>
+                        </div>
+                        <div class="synth-option" data-synth="midicube" data-requires-sf2="true">
+                            <div class="synth-name">Midicube</div>
+                            <div class="synth-desc">SoundFont</div>
+                        </div>
+                    </div>
+                    <div class="soundfont-selector" id="soundfontSelector" style="display: none;">
+                        <select id="soundfontSelect">
+                            <option value="">Select SoundFont...</option>
+                        </select>
+                        <div class="soundfont-status" id="soundfontStatus">No SoundFont loaded</div>
+                    </div>
+                </div>
+                
                 <div class="volume-control">
                     <span>VOL:</span>
                     <div class="volume-slider" id="volumeSlider">
@@ -79,20 +99,21 @@
     <script src="/js/openmpt-loader.js"></script> <!-- CRITICAL: Must load between libopenmpt and chiptune2 -->
     <script src="/js/chiptune2.js"></script>
     <script src="/js/webaudio-tinysynth.js"></script>
+    <script src="/node_modules/midicube/dist/midicube.min.js"></script>
     <script src="/js/midi-parser.js"></script>
     
     <!-- Core Application Files -->
-    <script src="/js/fallback-audio-engine.js"></script> <!-- Use the fixed version -->
+    <script src="/js/fallback-audio-engine.js"></script>
     <script src="/js/ui-controller.js"></script>
     
     <script>
-        // Enhanced initialization with simplified approach
+        // Enhanced initialization with Midicube support
         let player = null;
         let uiController = null;
         
         async function initializePlayer() {
             try {
-                console.log('🎵 Fusion Music Player v2.1 - Initializing...');
+                console.log('🎵 Fusion Music Player v2.5 - Initializing...');
                 
                 // Initialize UI Controller first
                 uiController = new UIController();
@@ -136,6 +157,7 @@
                     'OpenMPT WASM': typeof Module !== 'undefined' && Module._openmpt_module_create_from_memory,
                     'ChiptuneJS': typeof ChiptuneJsPlayer !== 'undefined',
                     'TinySynth': typeof WebAudioTinySynth !== 'undefined',
+                    'Midicube': typeof MIDICube !== 'undefined',
                     'Helper Functions': typeof UTF8ToString !== 'undefined' && typeof writeAsciiToMemory !== 'undefined'
                 };
                 
@@ -149,12 +171,12 @@
                     warnings.push('Tracker files may have issues (helper functions missing)');
                 }
                 
-                if (!libraryStatus['TinySynth']) {
-                    warnings.push('MIDI files will not work (TinySynth not loaded)');
+                if (!libraryStatus['TinySynth'] && !libraryStatus['Midicube']) {
+                    warnings.push('MIDI files will not work (no MIDI synths loaded)');
                 }
                 
                 // Display status
-                let statusMsg = '🎵 Fusion Player v2.1 ready (Web Audio Direct Mode)';
+                let statusMsg = '🎵 Fusion Player v2.5 ready (Web Audio Direct Mode)';
                 
                 if (warnings.length > 0) {
                     statusMsg += ' - ⚠️ ' + warnings.join(', ');
@@ -165,7 +187,7 @@
                 
                 // Log library status
                 console.log('📚 Library Status:', libraryStatus);
-                console.log('✅ Fusion Music Player v2.1 ready');
+                console.log('✅ Fusion Music Player v2.3.5 ready');
                 
             } catch (error) {
                 console.error('❌ Player initialization failed:', error);
@@ -221,7 +243,7 @@
             if (!player || !player.uiController) return;
             
             // Ignore if user is typing in an input
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
             
             switch (e.code) {
                 case 'Space':
@@ -278,7 +300,9 @@
                 'Volume': engine.volume,
                 'Has ChiptuneJS': !!engine.chiptunePlayer,
                 'Has TinySynth': !!engine.tinySynth,
-                'Current Playback Type': engine.playbackType
+                'Has Midicube': !!engine.midicube,
+                'Current Playback Type': engine.playbackType,
+                'Current MIDI Synth': engine.currentMidiSynth
             };
             
             console.table(status);
@@ -290,6 +314,7 @@
                 'ChiptuneJsConfig': typeof ChiptuneJsConfig !== 'undefined',
                 'ChiptuneJsPlayer': typeof ChiptuneJsPlayer !== 'undefined',
                 'WebAudioTinySynth': typeof WebAudioTinySynth !== 'undefined',
+                'MIDICube': typeof MIDICube !== 'undefined',
                 'UTF8ToString': typeof UTF8ToString !== 'undefined',
                 'writeAsciiToMemory': typeof writeAsciiToMemory !== 'undefined'
             };
@@ -312,8 +337,7 @@
             
             return status;
         };
-        // Why are you looking at this??
-	// because you want to debug something, that's why. :)
+        
         // Add console helper message
         console.log('💡 Debug helper available - type debugAudio() in console to see current status');
     </script>
