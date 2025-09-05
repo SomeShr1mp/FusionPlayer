@@ -1,4 +1,4 @@
-// Enhanced UIController with SpessaSynth support - Manages all user interface interactions
+// Enhanced UIController with improved MIDI progress handling
 class UIController {
     constructor() {
         this.elements = {};
@@ -14,6 +14,9 @@ class UIController {
         this.keyboardShortcutsEnabled = false;
         this.lastProgressUpdate = 0;
         
+        // Progress bar interaction
+        this.isDraggingProgress = false;
+        
         // Error handling
         this.errorDisplayTimeout = null;
         this.statusUpdateQueue = [];
@@ -27,43 +30,29 @@ class UIController {
             duration: 0
         };
         
-        console.log('🎛️ Enhanced UIController v2.5.1 initialized (SpessaSynth support)');
+        console.log('🎛️ UIController v2.1 initialized with enhanced MIDI progress support');
     }
     
     async initialize() {
         try {
-            this.updateSystemStatus('Initializing Enhanced UI controller...');
+            this.updateSystemStatus('Initializing UI controller...');
             
-            // Get all DOM elements with error handling
             this.initializeElements();
-            
-            // Setup event listeners with enhanced error handling
             this.setupEventListeners();
-            
-            // Initialize drag and drop
             this.initializeDragAndDrop();
             
-            // Load initial file list
             await this.loadFileList();
             
-            // Setup keyboard shortcuts
             this.initializeKeyboardShortcuts();
-            
-            // Initialize volume control
             this.initializeVolumeControl();
-            
-            // Setup progress bar interaction
             this.initializeProgressControl();
             
-            // Initialize SpessaSynth-specific UI
-            this.initializeSpessaSynthUI();
-            
             this.isInitialized = true;
-            this.updateSystemStatus('Enhanced UI controller ready ✓');
-            console.log('✅ Enhanced UIController initialized successfully');
+            this.updateSystemStatus('UI controller ready ✓');
+            console.log('✅ UIController initialized successfully');
             
         } catch (error) {
-            console.error('Enhanced UIController initialization failed:', error);
+            console.error('UIController initialization failed:', error);
             this.showError('UI initialization failed: ' + error.message);
             throw error;
         }
@@ -75,8 +64,6 @@ class UIController {
             'trackTitle', 'trackInfo', 'progressBar', 'progressFill',
             'currentTime', 'totalTime', 'volumeSlider', 'volumeFill', 'volumeDisplay',
             'playBtn', 'pauseBtn', 'stopBtn', 'prevBtn', 'nextBtn',
-            'synthSelectBtn', 'soundfontBtn', 'synthInfo',
-            'currentSynthEngine', 'currentSoundFont', 'activeVoices',
             'systemStatus'
         ];
         
@@ -89,7 +76,6 @@ class UIController {
             }
         });
         
-        // Validate critical elements
         const criticalElements = ['fileList', 'playBtn', 'systemStatus'];
         const missingCritical = criticalElements.filter(id => !this.elements[id]);
         
@@ -97,12 +83,11 @@ class UIController {
             throw new Error(`Critical UI elements missing: ${missingCritical.join(', ')}`);
         }
         
-        console.log('✅ Enhanced UI elements initialized');
+        console.log('✅ UI elements initialized');
     }
     
     setupEventListeners() {
         try {
-            // Enhanced button event handlers
             if (this.elements.playBtn) {
                 this.elements.playBtn.addEventListener('click', () => this.safeExecute(() => this.handlePlay()));
             }
@@ -119,22 +104,12 @@ class UIController {
                 this.elements.nextBtn.addEventListener('click', () => this.safeExecute(() => this.handleNext()));
             }
             
-            // SpessaSynth-specific buttons
-            if (this.elements.synthSelectBtn) {
-                this.elements.synthSelectBtn.addEventListener('click', () => this.safeExecute(() => this.showSynthSelector()));
-            }
-            if (this.elements.soundfontBtn) {
-                this.elements.soundfontBtn.addEventListener('click', () => this.safeExecute(() => this.showSoundfontSelector()));
-            }
-            
-            // File input handler
             if (this.elements.fileInput) {
                 this.elements.fileInput.addEventListener('change', (e) => {
                     this.safeExecute(() => this.handleFiles(Array.from(e.target.files)));
                 });
             }
             
-            // Upload area click handler
             if (this.elements.uploadArea) {
                 this.elements.uploadArea.addEventListener('click', () => {
                     this.safeExecute(() => {
@@ -145,233 +120,13 @@ class UIController {
                 });
             }
             
-            console.log('✅ Enhanced event listeners setup complete');
+            console.log('✅ Event listeners setup complete');
             
         } catch (error) {
             console.error('Event listener setup failed:', error);
             throw error;
         }
     }
-    
-    initializeSpessaSynthUI() {
-        try {
-            // Initialize synth info display
-            this.updateSynthInfo();
-            
-            console.log('✅ SpessaSynth UI initialized');
-            
-        } catch (error) {
-            console.warn('SpessaSynth UI initialization failed:', error);
-        }
-    }
-    
-    async showSynthSelector() {
-        try {
-            const engines = [];
-            
-            if (this.audioEngine && this.audioEngine.spessaSynth) {
-                engines.push({ id: 'spessasynth', name: 'SpessaSynth (Advanced)' });
-            }
-            if (this.audioEngine && this.audioEngine.tinySynth) {
-                engines.push({ id: 'tinysynth', name: 'TinySynth (Fallback)' });
-            }
-            
-            if (engines.length === 0) {
-                this.showError('No MIDI synthesizers available');
-                return;
-            }
-            
-            // Create simple selection dialog
-            const selectedEngine = await this.showSelectionDialog(
-                'Select MIDI Synthesizer',
-                engines,
-                this.audioEngine.currentSynthEngine
-            );
-            
-            if (selectedEngine && selectedEngine !== this.audioEngine.currentSynthEngine) {
-                await this.audioEngine.switchSynthEngine(selectedEngine);
-                this.updateSynthInfo();
-                this.updateSystemStatus(`Switched to ${selectedEngine} synthesizer`);
-            }
-            
-        } catch (error) {
-            this.showError(`Synth selection failed: ${error.message}`);
-        }
-    }
-    
-    async showSoundfontSelector() {
-        try {
-            if (!this.audioEngine || !this.audioEngine.spessaSynth) {
-                this.showError('SpessaSynth not available for SoundFont selection');
-                return;
-            }
-            
-            // Get available soundfonts
-            const response = await fetch('/api/soundfonts');
-            const soundfonts = await response.json();
-            
-            if (soundfonts.length === 0) {
-                this.showError('No SoundFont files available. Please upload .sf2 files.');
-                return;
-            }
-            
-            const soundfontOptions = soundfonts.map(sf => ({
-                id: sf.filename,
-                name: `${sf.filename} (${sf.displaySize})`
-            }));
-            
-            const selectedSF = await this.showSelectionDialog(
-                'Select SoundFont',
-                soundfontOptions,
-                this.audioEngine.currentSoundFont
-            );
-            
-            if (selectedSF && selectedSF !== this.audioEngine.currentSoundFont) {
-                await this.loadSoundFont(selectedSF);
-            }
-            
-        } catch (error) {
-            this.showError(`SoundFont selection failed: ${error.message}`);
-        }
-    }
-    
-    async loadSoundFont(filename) {
-        try {
-            this.updateSystemStatus(`Loading SoundFont: ${filename}...`);
-            
-            const response = await fetch(`/soundfonts/${filename}`);
-            if (!response.ok) {
-                throw new Error(`Failed to load SoundFont: ${response.status}`);
-            }
-            
-            const soundFontData = await response.arrayBuffer();
-            await this.audioEngine.loadSoundFont(soundFontData, filename);
-            
-            this.updateSynthInfo();
-            this.updateSystemStatus(`SoundFont loaded: ${filename} ✓`);
-            
-        } catch (error) {
-            this.showError(`SoundFont loading failed: ${error.message}`);
-        }
-    }
-    
-    async showSelectionDialog(title, options, currentValue) {
-        return new Promise((resolve) => {
-            // Create modal dialog
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.8);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 1000;
-                font-family: 'Share Tech Mono', monospace;
-            `;
-            
-            const dialog = document.createElement('div');
-            dialog.style.cssText = `
-                background: #000;
-                border: 2px solid #00ff00;
-                padding: 20px;
-                min-width: 300px;
-                max-width: 500px;
-                color: #00ff00;
-            `;
-            
-            dialog.innerHTML = `
-                <h3 style="margin-bottom: 15px; color: #00ffff;">${title}</h3>
-                <div id="optionsList" style="margin-bottom: 15px;"></div>
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button id="cancelBtn" class="btn">Cancel</button>
-                    <button id="selectBtn" class="btn">Select</button>
-                </div>
-            `;
-            
-            modal.appendChild(dialog);
-            document.body.appendChild(modal);
-            
-            // Add options
-            const optionsList = dialog.querySelector('#optionsList');
-            let selectedValue = currentValue;
-            
-            options.forEach(option => {
-                const optionDiv = document.createElement('div');
-                optionDiv.style.cssText = `
-                    padding: 8px;
-                    cursor: pointer;
-                    border: 1px solid #004400;
-                    margin: 2px 0;
-                    background: ${option.id === currentValue ? 'rgba(0,255,0,0.2)' : 'rgba(0,34,0,0.3)'};
-                `;
-                optionDiv.textContent = option.name;
-                
-                optionDiv.addEventListener('click', () => {
-                    // Remove previous selection
-                    optionsList.querySelectorAll('div').forEach(div => {
-                        div.style.background = 'rgba(0,34,0,0.3)';
-                    });
-                    // Highlight selected
-                    optionDiv.style.background = 'rgba(0,255,0,0.2)';
-                    selectedValue = option.id;
-                });
-                
-                optionsList.appendChild(optionDiv);
-            });
-            
-            // Event handlers
-            dialog.querySelector('#cancelBtn').addEventListener('click', () => {
-                document.body.removeChild(modal);
-                resolve(null);
-            });
-            
-            dialog.querySelector('#selectBtn').addEventListener('click', () => {
-                document.body.removeChild(modal);
-                resolve(selectedValue);
-            });
-            
-            // Close on background click
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    document.body.removeChild(modal);
-                    resolve(null);
-                }
-            });
-        });
-    }
-    
-    updateSynthInfo() {
-        try {
-            if (!this.audioEngine) return;
-            
-            const status = this.audioEngine.getStatus();
-            
-            if (this.elements.currentSynthEngine) {
-                const engineName = status.currentSynthEngine === 'spessasynth' ? 'SpessaSynth' :
-                                status.currentSynthEngine === 'tinysynth' ? 'TinySynth' :
-                                status.currentSynthEngine === 'auto' ? 'Auto' : 'None';
-                this.elements.currentSynthEngine.textContent = engineName;
-            }
-            
-            if (this.elements.currentSoundFont) {
-                this.elements.currentSoundFont.textContent = status.currentSoundFont || 'None';
-            }
-            
-            if (this.elements.activeVoices) {
-                this.elements.activeVoices.textContent = status.activeVoices.toString();
-            }
-            
-        } catch (error) {
-            console.warn('Synth info update error:', error);
-        }
-    }
-    
-    // Include all the previous UIController methods (initializeDragAndDrop, etc.)
-    // ... [Previous methods from the original ui-controller.js] ...
     
     initializeDragAndDrop() {
         if (!this.elements.uploadArea) return;
@@ -382,26 +137,26 @@ class UIController {
             uploadArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                uploadArea.classList.add('dragover');
+                uploadArea.classList.add('drag-over');
             });
             
             uploadArea.addEventListener('dragleave', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                uploadArea.classList.remove('dragover');
+                uploadArea.classList.remove('drag-over');
             });
             
             uploadArea.addEventListener('drop', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                uploadArea.classList.remove('dragover');
+                uploadArea.classList.remove('drag-over');
                 
                 const files = Array.from(e.dataTransfer.files);
                 this.safeExecute(() => this.handleFiles(files));
             });
             
             this.dragAndDropEnabled = true;
-            console.log('✅ Enhanced drag and drop initialized');
+            console.log('✅ Drag and drop initialized');
             
         } catch (error) {
             console.warn('Drag and drop initialization failed:', error);
@@ -443,24 +198,12 @@ class UIController {
                             e.preventDefault();
                             this.adjustVolume(-0.1);
                             break;
-                        case 'KeyS':
-                            if (e.ctrlKey || e.metaKey) {
-                                e.preventDefault();
-                                this.showSynthSelector();
-                            }
-                            break;
-                        case 'KeyF':
-                            if (e.ctrlKey || e.metaKey) {
-                                e.preventDefault();
-                                this.showSoundfontSelector();
-                            }
-                            break;
                     }
                 });
             });
             
             this.keyboardShortcutsEnabled = true;
-            console.log('✅ Enhanced keyboard shortcuts initialized');
+            console.log('✅ Keyboard shortcuts initialized');
             
         } catch (error) {
             console.warn('Keyboard shortcuts initialization failed:', error);
@@ -515,7 +258,7 @@ class UIController {
                 updateVolumeFromEvent(touch);
             });
             
-            console.log('✅ Enhanced volume control initialized');
+            console.log('✅ Volume control initialized');
             
         } catch (error) {
             console.warn('Volume control initialization failed:', error);
@@ -528,20 +271,77 @@ class UIController {
         try {
             const progressBar = this.elements.progressBar;
             
-            progressBar.addEventListener('click', (e) => {
-                if (!this.audioEngine || !this.uiState.isPlaying) return;
+            const seekToPosition = (e) => {
+                if (!this.audioEngine || !this.uiState.duration || this.uiState.duration === 0) {
+                    return;
+                }
                 
                 const rect = progressBar.getBoundingClientRect();
                 const x = e.clientX - rect.left;
-                const percentage = x / rect.width;
+                const percentage = Math.max(0, Math.min(1, x / rect.width));
                 const seekTime = percentage * this.uiState.duration;
                 
+                // For MIDI files, we need to restart playback from the beginning
+                // since TinySynth doesn't support seeking
+                if (this.currentTrack && this.currentTrack.type === 'midi') {
+                    if (seekTime < this.uiState.currentTime) {
+                        // Seeking backwards in MIDI - restart from beginning
+                        this.updateSystemStatus('⚠️ MIDI seeking backwards - restarting track');
+                        this.handlePlay();
+                        return;
+                    }
+                }
+                
+                // Try to seek
                 if (this.audioEngine.seekTo) {
                     this.audioEngine.seekTo(seekTime);
+                } else if (this.audioEngine.chiptunePlayer && this.audioEngine.chiptunePlayer.seekTo) {
+                    this.audioEngine.chiptunePlayer.seekTo(seekTime);
+                }
+            };
+            
+            progressBar.addEventListener('mousedown', (e) => {
+                this.isDraggingProgress = true;
+                seekToPosition(e);
+            });
+            
+            progressBar.addEventListener('mousemove', (e) => {
+                if (this.isDraggingProgress) {
+                    seekToPosition(e);
                 }
             });
             
-            console.log('✅ Enhanced progress control initialized');
+            document.addEventListener('mouseup', () => {
+                this.isDraggingProgress = false;
+            });
+            
+            progressBar.addEventListener('click', (e) => {
+                if (!this.isDraggingProgress) {
+                    seekToPosition(e);
+                }
+            });
+            
+            // Touch support
+            progressBar.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.isDraggingProgress = true;
+                const touch = e.touches[0];
+                seekToPosition(touch);
+            });
+            
+            progressBar.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (this.isDraggingProgress) {
+                    const touch = e.touches[0];
+                    seekToPosition(touch);
+                }
+            });
+            
+            progressBar.addEventListener('touchend', () => {
+                this.isDraggingProgress = false;
+            });
+            
+            console.log('✅ Progress control initialized');
             
         } catch (error) {
             console.warn('Progress control initialization failed:', error);
@@ -550,7 +350,7 @@ class UIController {
     
     setAudioEngine(audioEngine) {
         this.audioEngine = audioEngine;
-        console.log('✅ Enhanced audio engine connected to UI controller');
+        console.log('✅ Audio engine connected to UI controller');
     }
     
     async loadFileList() {
@@ -612,7 +412,6 @@ class UIController {
                 `;
             }).join('');
             
-            // Re-select current track if it exists
             if (this.currentIndex >= 0 && this.currentIndex < this.playlist.length) {
                 this.highlightTrack(this.currentIndex);
             }
@@ -855,9 +654,15 @@ class UIController {
     
     updateProgress(currentTime, duration) {
         try {
+            // Don't update if user is dragging the progress bar
+            if (this.isDraggingProgress) {
+                return;
+            }
+            
             this.uiState.currentTime = currentTime;
             this.uiState.duration = duration;
             
+            // Throttle progress updates
             const now = performance.now();
             if (now - this.lastProgressUpdate < 100) return;
             this.lastProgressUpdate = now;
@@ -983,6 +788,7 @@ class UIController {
         }
     }
     
+    // Public API methods
     getState() {
         return {
             ...this.uiState,
@@ -993,6 +799,7 @@ class UIController {
         };
     }
     
+    // Diagnostic methods
     runDiagnostics() {
         const diagnostics = {
             initialization: {
@@ -1008,17 +815,12 @@ class UIController {
             },
             ui: {
                 volume: this.volumeValue,
+                isDraggingProgress: this.isDraggingProgress,
                 ...this.uiState
-            },
-            spessasynth: {
-                hasSpessaSynth: !!(this.audioEngine && this.audioEngine.spessaSynth),
-                currentSynthEngine: this.audioEngine?.currentSynthEngine || 'unknown',
-                currentSoundFont: this.audioEngine?.currentSoundFont || 'unknown',
-                activeVoices: this.audioEngine?.activeVoices || 0
             }
         };
         
-        console.log('🔍 Enhanced UI Controller Diagnostics:', diagnostics);
+        console.log('🔍 UI Controller Diagnostics:', diagnostics);
         return diagnostics;
     }
 }
