@@ -46,14 +46,10 @@ RUN curl -L -f -o /app/public/js/webaudio-tinysynth.js \
     echo "TinySynth download failed - MIDI support will be limited"
 
 
-# Verify Midicube installation
-RUN if [ -f /app/node_modules/midicube/package.json ]; then \
-        echo "✅ Midicube installed successfully"; \
-        ls -la /app/node_modules/midicube/dist/ || echo "Midicube dist folder not found"; \
-    else \
-        echo "X Midicube not found in node_modules X"; \
-    fi
-
+# Download webaudio-tinysynth for MIDI playback
+RUN curl -L -f -o /app/public/js/midicube.js \
+    https://cdn.jsdelivr.net/npm/midicube@0.9.2/releases/midicube.min.js || \
+    echo "MidiCube download failed - MIDI support will be limited.. Falling back to tinysynth"
 
 # Download a compact SoundFont (optional, for enhanced MIDI)
 RUN curl -L -f -o /app/public/soundfonts/default.sf2 \

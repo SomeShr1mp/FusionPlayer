@@ -1,4 +1,4 @@
-// Enhanced UIController with synth selector and SoundFont management
+// Enhanced UIController with improved MIDI progress handling
 class UIController {
     constructor() {
         this.elements = {};
@@ -14,10 +14,8 @@ class UIController {
         this.keyboardShortcutsEnabled = false;
         this.lastProgressUpdate = 0;
         
-        // Synth selector state
-        this.currentSynth = 'tinysynth';
-        this.soundfontsList = [];
-        this.currentSoundfont = null;
+        // Progress bar interaction
+        this.isDraggingProgress = false;
         
         // Error handling
         this.errorDisplayTimeout = null;
@@ -32,38 +30,21 @@ class UIController {
             duration: 0
         };
         
-        console.log('🎛️ UIController v2.3.5 initialized with synth selector');
+        console.log('🎛️ UIController v2.1 initialized with enhanced MIDI progress support');
     }
     
     async initialize() {
         try {
             this.updateSystemStatus('Initializing UI controller...');
             
-            // Get all DOM elements with error handling
             this.initializeElements();
-            
-            // Setup event listeners with enhanced error handling
             this.setupEventListeners();
-            
-            // Initialize drag and drop
             this.initializeDragAndDrop();
             
-            // Initialize synth selector
-            this.initializeSynthSelector();
-            
-            // Load initial file list
             await this.loadFileList();
             
-            // Load SoundFonts list
-            await this.loadSoundfontsList();
-            
-            // Setup keyboard shortcuts
             this.initializeKeyboardShortcuts();
-            
-            // Initialize volume control
             this.initializeVolumeControl();
-            
-            // Setup progress bar interaction
             this.initializeProgressControl();
             
             this.isInitialized = true;
@@ -83,7 +64,6 @@ class UIController {
             'trackTitle', 'trackInfo', 'progressBar', 'progressFill',
             'currentTime', 'totalTime', 'volumeSlider', 'volumeFill', 'volumeDisplay',
             'playBtn', 'pauseBtn', 'stopBtn', 'prevBtn', 'nextBtn',
-            'synthSelector', 'soundfontSelector', 'soundfontSelect', 'soundfontStatus',
             'systemStatus'
         ];
         
@@ -96,7 +76,6 @@ class UIController {
             }
         });
         
-        // Validate critical elements
         const criticalElements = ['fileList', 'playBtn', 'systemStatus'];
         const missingCritical = criticalElements.filter(id => !this.elements[id]);
         
@@ -109,7 +88,6 @@ class UIController {
     
     setupEventListeners() {
         try {
-            // Enhanced button event handlers with error boundaries
             if (this.elements.playBtn) {
                 this.elements.playBtn.addEventListener('click', () => this.safeExecute(() => this.handlePlay()));
             }
@@ -126,14 +104,12 @@ class UIController {
                 this.elements.nextBtn.addEventListener('click', () => this.safeExecute(() => this.handleNext()));
             }
             
-            // File input handler
             if (this.elements.fileInput) {
                 this.elements.fileInput.addEventListener('change', (e) => {
                     this.safeExecute(() => this.handleFiles(Array.from(e.target.files)));
                 });
             }
             
-            // Upload area click handler
             if (this.elements.uploadArea) {
                 this.elements.uploadArea.addEventListener('click', () => {
                     this.safeExecute(() => {
@@ -141,13 +117,6 @@ class UIController {
                             this.elements.fileInput.click();
                         }
                     });
-                });
-            }
-            
-            // SoundFont selector handler
-            if (this.elements.soundfontSelect) {
-                this.elements.soundfontSelect.addEventListener('change', (e) => {
-                    this.safeExecute(() => this.handleSoundfontChange(e.target.value));
                 });
             }
             
@@ -159,56 +128,28 @@ class UIController {
         }
     }
     
-    initializeSynthSelector() {
-        if (!this.elements.synthSelector) return;
-        
-        try {
-            const synthOptions = this.elements.synthSelector.querySelectorAll('.synth-option');
-            
-            synthOptions.forEach(option => {
-                option.addEventListener('click', () => {
-                    const synthType = option.dataset.synth;
-                    const requiresSf2 = option.dataset.requiresSf2 === 'true';
-                    
-                    if (option.classList.contains('disabled')) return;
-                    
-                    this.safeExecute(() => this.handleSynthChange(synthType, requiresSf2));
-                });
-            });
-            
-            // Set initial state
-            this.updateSynthSelector('tinysynth');
-            
-            console.log('✅ Synth selector initialized');
-            
-        } catch (error) {
-            console.warn('Synth selector initialization failed:', error);
-        }
-    }
-    
     initializeDragAndDrop() {
         if (!this.elements.uploadArea) return;
         
         try {
             const uploadArea = this.elements.uploadArea;
             
-            // Enhanced drag and drop with visual feedback
             uploadArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                uploadArea.classList.add('dragover');
+                uploadArea.classList.add('drag-over');
             });
             
             uploadArea.addEventListener('dragleave', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                uploadArea.classList.remove('dragover');
+                uploadArea.classList.remove('drag-over');
             });
             
             uploadArea.addEventListener('drop', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                uploadArea.classList.remove('dragover');
+                uploadArea.classList.remove('drag-over');
                 
                 const files = Array.from(e.dataTransfer.files);
                 this.safeExecute(() => this.handleFiles(files));
@@ -225,8 +166,7 @@ class UIController {
     initializeKeyboardShortcuts() {
         try {
             document.addEventListener('keydown', (e) => {
-                // Only handle shortcuts when not typing in input fields
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
                 
                 this.safeExecute(() => {
                     switch (e.code) {
@@ -257,18 +197,6 @@ class UIController {
                         case 'ArrowDown':
                             e.preventDefault();
                             this.adjustVolume(-0.1);
-                            break;
-                        case 'Digit1':
-                        case 'Numpad1':
-                            e.preventDefault();
-                            this.handleSynthChange('tinysynth', false);
-                            break;
-                        case 'Digit2':
-                        case 'Numpad2':
-                            e.preventDefault();
-                            if (!this.elements.synthSelector.querySelector('[data-synth="midicube"]').classList.contains('disabled')) {
-                                this.handleSynthChange('midicube', true);
-                            }
                             break;
                     }
                 });
@@ -317,7 +245,7 @@ class UIController {
                 isDragging = false;
             });
             
-            // Touch support for mobile
+            // Touch support
             volumeSlider.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 const touch = e.touches[0];
@@ -343,17 +271,74 @@ class UIController {
         try {
             const progressBar = this.elements.progressBar;
             
-            progressBar.addEventListener('click', (e) => {
-                if (!this.audioEngine || !this.uiState.isPlaying) return;
+            const seekToPosition = (e) => {
+                if (!this.audioEngine || !this.uiState.duration || this.uiState.duration === 0) {
+                    return;
+                }
                 
                 const rect = progressBar.getBoundingClientRect();
                 const x = e.clientX - rect.left;
-                const percentage = x / rect.width;
+                const percentage = Math.max(0, Math.min(1, x / rect.width));
                 const seekTime = percentage * this.uiState.duration;
                 
+                // For MIDI files, we need to restart playback from the beginning
+                // since TinySynth doesn't support seeking
+                if (this.currentTrack && this.currentTrack.type === 'midi') {
+                    if (seekTime < this.uiState.currentTime) {
+                        // Seeking backwards in MIDI - restart from beginning
+                        this.updateSystemStatus('⚠️ MIDI seeking backwards - restarting track');
+                        this.handlePlay();
+                        return;
+                    }
+                }
+                
+                // Try to seek
                 if (this.audioEngine.seekTo) {
                     this.audioEngine.seekTo(seekTime);
+                } else if (this.audioEngine.chiptunePlayer && this.audioEngine.chiptunePlayer.seekTo) {
+                    this.audioEngine.chiptunePlayer.seekTo(seekTime);
                 }
+            };
+            
+            progressBar.addEventListener('mousedown', (e) => {
+                this.isDraggingProgress = true;
+                seekToPosition(e);
+            });
+            
+            progressBar.addEventListener('mousemove', (e) => {
+                if (this.isDraggingProgress) {
+                    seekToPosition(e);
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                this.isDraggingProgress = false;
+            });
+            
+            progressBar.addEventListener('click', (e) => {
+                if (!this.isDraggingProgress) {
+                    seekToPosition(e);
+                }
+            });
+            
+            // Touch support
+            progressBar.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.isDraggingProgress = true;
+                const touch = e.touches[0];
+                seekToPosition(touch);
+            });
+            
+            progressBar.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (this.isDraggingProgress) {
+                    const touch = e.touches[0];
+                    seekToPosition(touch);
+                }
+            });
+            
+            progressBar.addEventListener('touchend', () => {
+                this.isDraggingProgress = false;
             });
             
             console.log('✅ Progress control initialized');
@@ -365,159 +350,7 @@ class UIController {
     
     setAudioEngine(audioEngine) {
         this.audioEngine = audioEngine;
-        
-        // Update synth selector based on available synths
-        if (audioEngine && audioEngine.availableSynths) {
-            this.updateAvailableSynths(audioEngine.availableSynths);
-        }
-        
         console.log('✅ Audio engine connected to UI controller');
-    }
-    
-    async loadSoundfontsList() {
-        try {
-            const response = await fetch('/api/soundfonts');
-            const soundfonts = await response.json();
-            this.updateSoundfontsList(soundfonts);
-        } catch (error) {
-            console.warn('Failed to load SoundFonts list:', error);
-            this.soundfontsList = [];
-        }
-    }
-    
-    updateSoundfontsList(soundfonts) {
-        this.soundfontsList = soundfonts;
-        
-        if (this.elements.soundfontSelect) {
-            this.elements.soundfontSelect.innerHTML = '<option value="">Select SoundFont...</option>';
-            
-            soundfonts.forEach(sf => {
-                const option = document.createElement('option');
-                option.value = sf.filename;
-                option.textContent = `${sf.filename} (${sf.displaySize})`;
-                this.elements.soundfontSelect.appendChild(option);
-            });
-        }
-        
-        console.log(`✅ SoundFonts list updated: ${soundfonts.length} files`);
-    }
-    
-    updateAvailableSynths(availableSynths) {
-        if (!this.elements.synthSelector) return;
-        
-        const synthOptions = this.elements.synthSelector.querySelectorAll('.synth-option');
-        
-        synthOptions.forEach(option => {
-            const synthType = option.dataset.synth;
-            const isAvailable = availableSynths.includes(synthType);
-            
-            if (isAvailable) {
-                option.classList.remove('disabled');
-            } else {
-                option.classList.add('disabled');
-            }
-        });
-    }
-    
-    updateSynthSelector(selectedSynth) {
-        if (!this.elements.synthSelector) return;
-        
-        const synthOptions = this.elements.synthSelector.querySelectorAll('.synth-option');
-        
-        synthOptions.forEach(option => {
-            const synthType = option.dataset.synth;
-            
-            if (synthType === selectedSynth) {
-                option.classList.add('active');
-            } else {
-                option.classList.remove('active');
-            }
-        });
-        
-        this.currentSynth = selectedSynth;
-        
-        // Show/hide SoundFont selector based on synth type
-        const requiresSf2 = selectedSynth === 'midicube';
-        if (this.elements.soundfontSelector) {
-            this.elements.soundfontSelector.style.display = requiresSf2 ? 'block' : 'none';
-        }
-    }
-    
-    updateSoundfontStatus(status, message) {
-        if (!this.elements.soundfontStatus) return;
-        
-        this.elements.soundfontStatus.className = `soundfont-status ${status}`;
-        
-        switch (status) {
-            case 'loading':
-                this.elements.soundfontStatus.textContent = `Loading: ${message}`;
-                break;
-            case 'loaded':
-                this.elements.soundfontStatus.textContent = `Loaded: ${message}`;
-                this.currentSoundfont = message;
-                break;
-            case 'error':
-                this.elements.soundfontStatus.textContent = `Error: ${message}`;
-                break;
-            default:
-                this.elements.soundfontStatus.textContent = message;
-        }
-    }
-    
-    async handleSynthChange(synthType, requiresSf2) {
-        try {
-            if (!this.audioEngine) {
-                this.showError('Audio engine not available');
-                return;
-            }
-            
-            this.updateSystemStatus(`Switching to ${synthType}...`);
-            
-            // Update audio engine
-            await this.audioEngine.setSynthType(synthType);
-            
-            // Update UI
-            this.updateSynthSelector(synthType);
-            
-            // If switching to Midicube and no SoundFont is loaded, prompt user
-            if (requiresSf2 && !this.currentSoundfont && this.soundfontsList.length > 0) {
-                this.updateSoundfontStatus('', 'Please select a SoundFont to use Midicube');
-            }
-            
-            this.updateSystemStatus(`MIDI synth: ${synthType} ✓`);
-            console.log(`✅ Switched to ${synthType}`);
-            
-        } catch (error) {
-            console.error('Synth change error:', error);
-            this.showError(`Failed to switch synth: ${error.message}`);
-        }
-    }
-    
-    async handleSoundfontChange(soundfontFilename) {
-        if (!soundfontFilename) {
-            this.currentSoundfont = null;
-            this.updateSoundfontStatus('', 'No SoundFont selected');
-            return;
-        }
-        
-        try {
-            if (!this.audioEngine || !this.audioEngine.loadSoundfont) {
-                this.showError('SoundFont loading not supported');
-                return;
-            }
-            
-            this.updateSoundfontStatus('loading', soundfontFilename);
-            
-            await this.audioEngine.loadSoundfont(soundfontFilename);
-            
-            // Status will be updated by the audio engine
-            console.log(`✅ SoundFont loaded: ${soundfontFilename}`);
-            
-        } catch (error) {
-            console.error('SoundFont loading error:', error);
-            this.updateSoundfontStatus('error', error.message);
-            this.showError(`SoundFont loading failed: ${error.message}`);
-        }
     }
     
     async loadFileList() {
@@ -539,7 +372,7 @@ class UIController {
         } catch (error) {
             console.error('Error loading file list:', error);
             this.showError('Failed to load file list: ' + error.message);
-            this.renderFileList(); // Render empty list
+            this.renderFileList();
         }
     }
     
@@ -579,7 +412,6 @@ class UIController {
                 `;
             }).join('');
             
-            // Re-select current track if it exists
             if (this.currentIndex >= 0 && this.currentIndex < this.playlist.length) {
                 this.highlightTrack(this.currentIndex);
             }
@@ -614,13 +446,11 @@ class UIController {
                 return;
             }
             
-            // Update selection
             this.currentIndex = index;
             this.currentTrack = this.playlist[index];
             
             console.log(`Selected track: ${this.currentTrack.filename} (type: ${this.currentTrack.type})`);
             
-            // Update UI
             this.highlightTrack(index);
             this.updateTrackInfo();
             
@@ -635,22 +465,18 @@ class UIController {
     
     highlightTrack(index) {
         try {
-            // Remove all highlights
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('selected', 'playing');
             });
             
-            // Add selection highlight
             const fileItem = document.querySelector(`[data-index="${index}"]`);
             if (fileItem) {
                 fileItem.classList.add('selected');
                 
-                // Add playing highlight if currently playing
                 if (this.uiState.isPlaying) {
                     fileItem.classList.add('playing');
                 }
                 
-                // Scroll into view if needed
                 fileItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
             
@@ -693,13 +519,6 @@ class UIController {
                 return;
             }
             
-            // Check if MIDI track and Midicube is selected but no SoundFont is loaded
-            if (this.currentTrack.type === 'midi' && this.currentSynth === 'midicube' && !this.currentSoundfont) {
-                this.showError('Please load a SoundFont for Midicube');
-                return;
-            }
-            
-            // If paused, resume instead of restarting
             if (this.uiState.isPaused) {
                 this.audioEngine.resume();
                 return;
@@ -709,7 +528,7 @@ class UIController {
             
             await this.audioEngine.playTrack(this.currentTrack);
             
-            this.highlightTrack(this.currentIndex); // Update playing status
+            this.highlightTrack(this.currentIndex);
             console.log(`✅ Playback started: ${this.currentTrack.filename}`);
             
         } catch (error) {
@@ -738,7 +557,6 @@ class UIController {
                 console.log('⏹️ Playback stopped');
             }
             
-            // Remove playing highlights
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('playing');
             });
@@ -758,7 +576,6 @@ class UIController {
             
             this.selectTrack(newIndex);
             
-            // Auto-play if currently playing
             if (this.uiState.isPlaying) {
                 setTimeout(() => this.handlePlay(), 100);
             }
@@ -778,7 +595,6 @@ class UIController {
             
             this.selectTrack(newIndex);
             
-            // Auto-play if currently playing
             if (this.uiState.isPlaying) {
                 setTimeout(() => this.handlePlay(), 100);
             }
@@ -794,7 +610,6 @@ class UIController {
             console.log('🎵 Track ended');
             this.updateSystemStatus('Track ended');
             
-            // Auto-advance to next track
             setTimeout(() => {
                 this.handleNext();
             }, 1000);
@@ -818,7 +633,6 @@ class UIController {
         this.uiState.isPlaying = isPlaying;
         this.uiState.isPaused = isPaused;
         
-        // Update button states
         if (this.elements.playBtn) {
             this.elements.playBtn.disabled = isPlaying && !isPaused;
         }
@@ -829,7 +643,6 @@ class UIController {
             this.elements.stopBtn.disabled = !isPlaying && !isPaused;
         }
         
-        // Update playing highlight
         if (isPlaying && this.currentIndex >= 0) {
             this.highlightTrack(this.currentIndex);
         } else if (!isPlaying) {
@@ -841,10 +654,15 @@ class UIController {
     
     updateProgress(currentTime, duration) {
         try {
+            // Don't update if user is dragging the progress bar
+            if (this.isDraggingProgress) {
+                return;
+            }
+            
             this.uiState.currentTime = currentTime;
             this.uiState.duration = duration;
             
-            // Throttle progress updates to avoid excessive DOM manipulation
+            // Throttle progress updates
             const now = performance.now();
             if (now - this.lastProgressUpdate < 100) return;
             this.lastProgressUpdate = now;
@@ -925,14 +743,11 @@ class UIController {
                 }
             }
             
-            // Show upload results
             const successCount = uploadResults.filter(r => r.startsWith('✓')).length;
             const message = `Upload complete: ${successCount}/${files.length} files`;
             this.updateSystemStatus(message);
             
-            // Reload file list and SoundFonts list
             await this.loadFileList();
-            await this.loadSoundfontsList();
             
         } catch (error) {
             console.error('File upload error:', error);
@@ -943,8 +758,6 @@ class UIController {
     showError(message) {
         try {
             console.error('🚨 UI Error:', message);
-            
-            // Simple error handling - just update system status
             this.updateSystemStatus('ERROR: ' + message);
             
         } catch (error) {
@@ -952,7 +765,6 @@ class UIController {
         }
     }
     
-    // Utility method for safe execution with error boundaries
     safeExecute(fn) {
         try {
             return fn();
@@ -965,7 +777,6 @@ class UIController {
     updateSystemStatus(message) {
         try {
             if (this.elements.systemStatus) {
-                // Add timestamp to status messages
                 const timestamp = new Date().toLocaleTimeString();
                 this.elements.systemStatus.textContent = `[${timestamp}] ${message}`;
             }
@@ -984,10 +795,7 @@ class UIController {
             currentTrack: this.currentTrack,
             currentIndex: this.currentIndex,
             playlistLength: this.playlist.length,
-            isInitialized: this.isInitialized,
-            currentSynth: this.currentSynth,
-            currentSoundfont: this.currentSoundfont,
-            soundfontsCount: this.soundfontsList.length
+            isInitialized: this.isInitialized
         };
     }
     
@@ -1005,13 +813,9 @@ class UIController {
                 currentIndex: this.currentIndex,
                 currentTrack: this.currentTrack?.filename || 'none'
             },
-            synth: {
-                currentSynth: this.currentSynth,
-                currentSoundfont: this.currentSoundfont,
-                soundfontsAvailable: this.soundfontsList.length
-            },
             ui: {
                 volume: this.volumeValue,
+                isDraggingProgress: this.isDraggingProgress,
                 ...this.uiState
             }
         };
