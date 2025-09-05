@@ -1,7 +1,7 @@
-#  FUSION MUSIC PLAYER v2.5.0
+#  FUSION MUSIC PLAYER v2.3.0
 *"It works! (Nobody is more surprised than I am)"*
 
-**Please use release version 2.2.0 since it actually works... 2.5.X is cursed**
+**Please use release version 2.2.0 since it actually works... 2.5.X is cursed so we reverted to 2.3.X**
 
 [![Docker](https://img.shields.io/badge/Docker-Surprisingly%20Works-blue)](https://docker.com)
 [![JavaScript](https://img.shields.io/badge/JavaScript-Held%20Together%20With%20Duct%20Tape-yellow)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
@@ -38,7 +38,7 @@ Since I'm basically just duct-taping other people's brilliant work together:
 - **[ChiptuneJS](https://github.com/deskjet/chiptune2.js)** by [@deskjet](https://github.com/deskjet) - For making tracker modules actually play instead of just making computer noises
 - **[libOpenMPT](https://lib.openmpt.org/)** - The WASM magic that I definitely don't understand but am grateful exists
 - **[WebAudio-TinySynth](https://github.com/g200kg/webaudio-tinysynth)** by [@g200kg](https://github.com/g200kg) - For MIDI synthesis that sounds like a dying robot
-- **[SpessaSynth_Lib](https://github.com/spessasus/spessasynth_lib)** by [@spessasus](https://github.com/spessasus) - Alternative MIDI synthesis for upcoming soundfont support. Please check out their main project, [SpessaSynth](https://github.com/spessasus/SpessaSynth)
+
 
 ### Technologies I Pretend To Understand
 - **Docker** - Because "it works on my machine" is a valid deployment strategy
@@ -110,7 +110,6 @@ FusionPlayer/
 │       ├── fallback-audio-engine.js  # The one that actually works
 │       ├── ui-controller.js    # UI logic held together with hope
 │       ├── openmpt-loader.js   # PLEASE GOD DO NOT LET THIS BREAK - IT BREAKS EVERYTHING
-│       ├── spessasynth-wrapper.js # The wrapper for the spessasynth_lib webaudio library for midi... currently not working
 │       └── midi-parser.js      # MIDI parsing that mostly works
 ├── docker-compose.yml          # Container config for the brave
 └── Dockerfile                  # Multi-stage build because I read it was "best practice"
