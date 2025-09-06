@@ -45,19 +45,42 @@ RUN curl -L -f -o /app/public/js/webaudio-tinysynth.js \
     https://g200kg.github.io/webaudio-tinysynth/webaudio-tinysynth.js || \
     echo "TinySynth download failed - MIDI support will be limited"
 
+# Copy Midicube from node_modules to public/js for easier serving
+RUN if [ -f /app/node_modules/midicube/releases/midicube.js ]; then \
+        echo "📦 Copying Midicube to public/js/..."; \
+        cp /app/node_modules/midicube/releases/midicube.js /app/public/js/midicube.js && \
+        echo "✅ Midicube copied successfully"; \
+        ls -la /app/public/js/midicube.js; \
+    else \
+        echo "❌ Midicube not found in node_modules - MIDI SoundFont support will be unavailable"; \
+        echo "   Expected: /app/node_modules/midicube/releases/midicube.js"; \
+        ls -la /app/node_modules/midicube/ 2>/dev/null || echo "   Midicube directory not found"; \
+    fi
 
-# Download webaudio-tinysynth for MIDI playback
-RUN curl -L -f -o /app/public/js/midicube.js \
-    https://cdn.jsdelivr.net/npm/midicube@0.9.2/releases/midicube.min.js || \
-    echo "MidiCube download failed - MIDI support will be limited.. Falling back to tinysynth"
+# Verify Midicube installation and copy
+RUN if [ -f /app/node_modules/midicube/package.json ]; then \
+        echo "✅ Midicube npm package installed successfully"; \
+        echo "📋 Midicube version: $(cat /app/node_modules/midicube/package.json | grep '"version"' | cut -d'"' -f4)"; \
+        ls -la /app/node_modules/midicube/releases/ || echo "⚠️  Midicube releases folder not found"; \
+    else \
+        echo "❌ Midicube npm package not found"; \
+        echo "🔍 Available node_modules:"; \
+        ls -la /app/node_modules/ | head -10; \
+    fi
+
+# Verify the copied file is accessible
+RUN if [ -f /app/public/js/midicube.min.js ]; then \
+        echo "✅ Midicube.min.js successfully copied to public/js/"; \
+        echo "📊 File size: $(du -h /app/public/js/midicube.js | cut -f1)"; \
+    else \
+        echo "❌ Midicube.js not found in public/js/ - creating placeholder"; \
+        echo "// Midicube placeholder - real file not found during build" > /app/public/js/midicube.js; \
+    fi
 
 # Download a compact SoundFont (optional, for enhanced MIDI)
 RUN curl -L -f -o /app/public/soundfonts/default.sf2 \
     https://files.maxdevnet.cc/Music/SoundFonts/default.sf2 || \
     echo "Default SoundFont download failed - will use TinySynth built-in sounds"
-
-
-
 
 # Note: The openmpt-loader.js file should be created separately and placed in public/js/
 # If it doesn't exist, the application will still work but might have compatibility issues

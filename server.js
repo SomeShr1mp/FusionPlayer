@@ -227,7 +227,7 @@ app.get('/api/wasm-check', async (req, res) => {
             const midicubeDistPath = path.join(midicubePath, 'dist', 'midicube.min.js');
             if (fsSync.existsSync(midicubeDistPath)) {
                 const stats = await fs.stat(midicubeDistPath);
-                wasmFiles['midicube'] = { exists: true, size: stats.size, path: 'node_modules/midicube/dist/midicube.min.js' };
+                wasmFiles['midicube'] = { exists: true, size: stats.size, path: 'node_modules/midicube/releases/midicube.js' };
             }
         }
         
