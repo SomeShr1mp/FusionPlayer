@@ -211,7 +211,7 @@ app.get('/api/wasm-check', async (req, res) => {
             'libopenmpt.js.mem': false,
             'libopenmpt.wasm': false,
             'midicube': false
-        };
+            };
         
         // Check OpenMPT files
         for (const file of ['libopenmpt.js', 'libopenmpt.js.mem', 'libopenmpt.wasm']) {
