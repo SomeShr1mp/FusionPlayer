@@ -179,7 +179,7 @@ GPLv3 License - Feel free to copy this disaster and make it your own disaster.
 - **The Chiptune/Demoscene Community** - For keeping tracker music alive
 - **Every Developer** who made the libraries that actually work
 - **My Past Self** - For leaving comments that present me could understand 
-
+- **[James Lyerla](https://github.com/lyerlajd)** - Would not have been able to do much of anything on this project with out him
 ##  Support
 
 If it breaks (when it breaks), try:
