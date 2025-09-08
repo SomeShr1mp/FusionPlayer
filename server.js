@@ -407,7 +407,7 @@ app.post('/api/set-default-soundfont/:filename', async (req, res) => {
 app.get('/api/midicube-status', async (req, res) => {
     try {
         const midicubePath = path.join(__dirname, 'node_modules', 'midicube');
-        const midicubeDistPath = path.join(midicubePath, 'dist', 'midicube.min.js');
+        const midicubeDistPath = path.join(midicubePath, 'releases', 'midicube.js');
         const packageJsonPath = path.join(midicubePath, 'package.json');
         
         let midicubeInfo = {
@@ -471,7 +471,7 @@ app.get('/health', async (req, res) => {
         if (musicDirExists) {
             try {
                 const musicFiles = await fs.readdir(musicDir);
-                musicFileCount = musicFiles.filter(f => 
+                musicFileCount = musicFiles.filter(f =>
                     ['.mod', '.xm', '.it', '.s3m', '.mid', '.midi'].includes(path.extname(f).toLowerCase())
                 ).length;
             } catch (err) {
@@ -653,6 +653,7 @@ const startServer = async () => {
             await log(`   Network:  http://${HOST}:${PORT}`);
             await log(`📦 WASM Support: Enabled with proper MIME types`);
             await log(`🎹 Midicube Support: Enabled`);
+            await log(`Sanity..... gone`);
             
             // Log initial file counts
             try {
