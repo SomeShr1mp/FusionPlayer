@@ -8,96 +8,96 @@ class FallbackAudioEngine {
         this.isPaused = false;
         this.currentTime = 0;
         this.duration = 0;
-
+        
         // Audio engines
         this.chiptunePlayer = null;
         this.tinySynth = null;
         this.midicube = null;
         this.synthesizerReady = false;
         this.midicubeReady = false;
-
+        
         // MIDI synth management
         this.currentMidiSynth = 'tinysynth'; // Default to TinySynth
         this.availableSynths = ['tinysynth'];
         this.loadedSoundfonts = [];
         this.currentSoundfont = null;
-
+        
         // Playback state
         this.currentPlayback = null;
         this.playbackType = null;
         this.progressInterval = null;
-
+        
         // UI Controller
         this.uiController = null;
-
+        
         // ScriptProcessor for monitoring (if needed)
         this.monitorNode = null;
-
+        
         console.log('🎵 FallbackAudioEngine v2.3.5 initialized with Midicube support');
     }
-
+    
     setUIController(uiController) {
         this.uiController = uiController;
     }
-
+    
     async initialize() {
         try {
             this.updateStatus('Initializing fallback audio engine...');
-
+            
             // Initialize Web Audio Context
             await this.initializeAudioContext();
-
+            
             // Initialize audio engines
             await this.initializeAudioEngines();
-
+            
             // Setup user activation handlers
             this.setupUserActivation();
-
+            
             // Load SoundFonts list
             await this.loadSoundfontsList();
-
+            
             this.updateStatus('Fallback audio engine ready ✔');
             console.log('✅ FallbackAudioEngine initialized successfully');
-
+            
             return true;
-
+            
         } catch (error) {
             this.updateStatus('Fallback audio engine initialization failed: ' + error.message);
             console.error('FallbackAudioEngine initialization error:', error);
             throw error;
         }
     }
-
+    
     async initializeAudioContext() {
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (!AudioContext) {
                 throw new Error('Web Audio API not supported');
             }
-
+            
             this.audioContext = new AudioContext();
-
+            
             // Create gain node
             this.gainNode = this.audioContext.createGain();
             this.gainNode.connect(this.audioContext.destination);
             this.gainNode.gain.value = this.volume;
-
+            
             // Add state change listener
             this.audioContext.addEventListener('statechange', () => {
                 this.updateStatus(`Audio context: ${this.audioContext.state}`);
             });
-
+            
             this.updateStatus(`Audio context initialized (${this.audioContext.state}) ✔`);
-
+            
         } catch (error) {
             console.error('AudioContext initialization failed:', error);
             throw new Error(`AudioContext initialization failed: ${error.message}`);
         }
     }
-
+    
     async initializeAudioEngines() {
         const engines = [];
-
+        
         // Initialize ChiptuneJS with proper connection
         try {
             this.updateStatus('Initializing ChiptuneJS engine...');
@@ -106,7 +106,7 @@ class FallbackAudioEngine {
         } catch (error) {
             console.warn('ChiptuneJS initialization failed:', error);
         }
-
+        
         // Initialize TinySynth with proper connection
         try {
             this.updateStatus('Initializing TinySynth engine...');
@@ -115,7 +115,7 @@ class FallbackAudioEngine {
         } catch (error) {
             console.warn('TinySynth initialization failed:', error);
         }
-
+        
         // Initialize Midicube
         try {
             this.updateStatus('Initializing Midicube engine...');
@@ -124,204 +124,238 @@ class FallbackAudioEngine {
         } catch (error) {
             console.warn('Midicube initialization failed:', error);
         }
-
+        
         if (engines.length === 0) {
             throw new Error('No audio engines could be initialized');
         }
-
+        
         this.updateStatus(`Audio engines ready: ${engines.join(', ')} ✔`);
     }
-
+    
     async initializeChiptuneJS() {
         // Wait for required libraries
         let attempts = 0;
         const maxAttempts = 50;
-
+        
         while (attempts < maxAttempts) {
             // Check for all required components
             const hasModule = typeof Module !== 'undefined';
             const hasChiptuneConfig = typeof ChiptuneJsConfig !== 'undefined';
             const hasChiptunePlayer = typeof ChiptuneJsPlayer !== 'undefined';
             const hasLibOpenMPT = typeof libopenmpt !== 'undefined';
-
+            
             if (hasModule && hasChiptuneConfig && hasChiptunePlayer) {
                 // Also check for WASM functions
-                const hasWASMFunctions = Module._openmpt_module_create_from_memory &&
-                    Module._openmpt_module_read_float_stereo;
-
+                const hasWASMFunctions = Module._openmpt_module_create_from_memory && 
+                                       Module._openmpt_module_read_float_stereo;
+                
                 if (hasWASMFunctions) {
                     break;
                 }
             }
-
+            
             await new Promise(resolve => setTimeout(resolve, 100));
             attempts++;
         }
-
+        
         if (attempts >= maxAttempts) {
             throw new Error('ChiptuneJS libraries not loaded properly');
         }
-
+        
         // Ensure libopenmpt has all required references
         if (!window.libopenmpt) {
             window.libopenmpt = Module;
         }
-
+        
         // Create ChiptuneJS player with proper configuration
         const config = new ChiptuneJsConfig(-1, 50, 1, this.audioContext);
         this.chiptunePlayer = new ChiptuneJsPlayer(config);
-
+        
         console.log('✅ ChiptuneJS player initialized with audio context');
         this.updateStatus('ChiptuneJS ready ✔');
     }
-
+    
     async initializeTinySynth() {
         // Wait for TinySynth library
         let attempts = 0;
         const maxAttempts = 50;
-
+        
         while (typeof WebAudioTinySynth === 'undefined' && attempts < maxAttempts) {
             await new Promise(resolve => setTimeout(resolve, 100));
             attempts++;
         }
-
+        
         if (attempts >= maxAttempts) {
             throw new Error('WebAudioTinySynth library not found');
         }
-
+        
         // Create TinySynth with proper Web Audio connection
         this.tinySynth = new WebAudioTinySynth({
-            quality: 1, // High quality
-            useReverb: 0, // Disable reverb for better performance
-            voices: 32 // More voices for complex MIDI files
+            quality: 1,      // High quality
+            useReverb: 0,    // Disable reverb for better performance
+            voices: 32       // More voices for complex MIDI files
         });
-
+        
         // TinySynth automatically connects to its own audio context
         if (this.tinySynth.getAudioContext) {
             const synthContext = this.tinySynth.getAudioContext();
             console.log('TinySynth has audio context:', synthContext);
         }
-
+        
         this.synthesizerReady = true;
-        this.availableSynths.push('tinysynth');
         console.log('✅ TinySynth initialized');
         this.updateStatus('TinySynth ready ✔');
     }
-
+    
     async initializeMiddicube() {
         try {
-            // First check if MIDICube is available globally
-            if (typeof window.MIDICube === 'undefined' && typeof MIDICube === 'undefined') {
-                // Try to load it dynamically
-                await this.loadMidicubeLibrary();
-            }
-
-            // Wait for Midicube library with better error handling
+            console.log('Checking for Midicube/MIDI availability...');
+            
+            // Check if we have either MIDICube wrapper or raw MIDI
             let attempts = 0;
             const maxAttempts = 50;
-
-            while (typeof MIDICube === 'undefined' && attempts < maxAttempts) {
+            
+            while (typeof MIDICube === 'undefined' && typeof window.MIDI === 'undefined' && attempts < maxAttempts) {
                 await new Promise(resolve => setTimeout(resolve, 100));
                 attempts++;
             }
-
+            
             if (attempts >= maxAttempts) {
-                console.warn('Midicube library not available, skipping initialization');
-                return; // Don't throw, just skip
+                console.warn('Midicube/MIDI library not available, skipping initialization');
+                return;
             }
-
+            
+            // If we have raw MIDI but no MIDICube wrapper, create basic wrapper
+            if (typeof MIDICube === 'undefined' && window.MIDI) {
+                console.log('Creating fallback MIDICube wrapper for raw MIDI object');
+                this.createFallbackWrapper();
+            }
+            
             // Initialize Midicube with our audio context
             this.midicube = new MIDICube({
                 audioContext: this.audioContext,
                 gainNode: this.gainNode
             });
-
+            
             this.midicubeReady = true;
             this.availableSynths.push('midicube');
-
-            console.log('✅ Midicube initialized');
+            
+            console.log('✅ Midicube initialized successfully');
             this.updateStatus('Midicube ready ✔');
-
+            
         } catch (error) {
-            console.warn('Midicube initialization skipped:', error);
+            console.warn('Midicube initialization failed:', error);
             // Don't throw - allow other engines to work
         }
     }
-
-    // Add this helper method to load Midicube dynamically
-    async loadMidicubeLibrary() {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = '/node_modules/midicube/releases/midicube.js'; // or use CDN
-            script.onload = resolve;
-            script.onerror = () => {
-                console.warn('Failed to load Midicube library dynamically');
-                resolve(); // Resolve anyway to continue
-            };
-            document.head.appendChild(script);
-        });
+    
+    createFallbackWrapper() {
+        // Emergency fallback if loader didn't work
+        window.MIDICube = class MIDICube {
+            constructor(options = {}) {
+                this.audioContext = options.audioContext;
+                this.gainNode = options.gainNode;
+                this.midi = window.MIDI;
+                console.log('Using emergency MIDICube wrapper');
+            }
+            
+            async loadMIDI(arrayBuffer) {
+                console.log('Loading MIDI in fallback wrapper');
+                this.midiData = arrayBuffer;
+                return Promise.resolve();
+            }
+            
+            async loadSoundfont(data) {
+                console.log('Soundfont loading not implemented in fallback wrapper');
+            }
+            
+            play() {
+                console.log('Playing with fallback wrapper');
+                this.isPlaying = true;
+            }
+            
+            stop() {
+                this.isPlaying = false;
+            }
+            
+            noteOn(channel, note, velocity) {
+                if (this.midi && this.midi.noteOn) {
+                    this.midi.noteOn(channel, note, velocity);
+                }
+            }
+            
+            noteOff(channel, note) {
+                if (this.midi && this.midi.noteOff) {
+                    this.midi.noteOff(channel, note);
+                }
+            }
+            
+            getCurrentTime() { return 0; }
+            getDuration() { return 0; }
+            setVolume(value) {}
+        };
     }
-
+    
     async loadSoundfontsList() {
         try {
             const response = await fetch('/api/soundfonts');
             const soundfonts = await response.json();
             this.loadedSoundfonts = soundfonts;
-
+            
             if (this.uiController) {
                 this.uiController.updateSoundfontsList(soundfonts);
             }
-
+            
             console.log(`✅ Found ${soundfonts.length} SoundFonts`);
         } catch (error) {
             console.warn('Failed to load SoundFonts list:', error);
             this.loadedSoundfonts = [];
         }
     }
-
+    
     async setSynthType(synthType) {
         if (!this.availableSynths.includes(synthType)) {
             throw new Error(`Synth type '${synthType}' not available`);
         }
-
+        
         // Stop current playback if MIDI
         if (this.isPlaying && this.playbackType === 'midi') {
             this.stop();
         }
-
+        
         this.currentMidiSynth = synthType;
         this.updateStatus(`MIDI synth set to: ${synthType}`);
-
+        
         if (this.uiController) {
             this.uiController.updateSynthSelector(synthType);
         }
     }
-
+    
     async loadSoundfont(soundfontFilename) {
         if (!this.midicubeReady) {
             throw new Error('Midicube not ready');
         }
-
+        
         try {
             this.updateStatus(`Loading SoundFont: ${soundfontFilename}...`);
-
+            
             const response = await fetch(`/soundfonts/${soundfontFilename}`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch SoundFont: ${response.statusText}`);
             }
-
+            
             const soundfontData = await response.arrayBuffer();
             await this.midicube.loadSoundfont(soundfontData);
-
+            
             this.currentSoundfont = soundfontFilename;
             this.updateStatus(`SoundFont loaded: ${soundfontFilename} ✔`);
-
+            
             if (this.uiController) {
                 this.uiController.updateSoundfontStatus('loaded', soundfontFilename);
             }
-
+            
             console.log(`✅ SoundFont loaded: ${soundfontFilename}`);
-
+            
         } catch (error) {
             this.updateStatus(`SoundFont loading failed: ${error.message}`);
             if (this.uiController) {
@@ -330,459 +364,413 @@ class FallbackAudioEngine {
             throw error;
         }
     }
-
+    
     setupUserActivation() {
-        const activateAudio = async () => {
+        // Resume audio context on user interaction
+        const resumeAudio = async () => {
             if (this.audioContext && this.audioContext.state === 'suspended') {
-                try {
-                    await this.audioContext.resume();
-                    this.updateStatus('Audio context activated ✔');
-                    console.log('🔊 Audio context activated');
-
-                    // Also activate TinySynth's context if it exists
-                    if (this.tinySynth && this.tinySynth.getAudioContext) {
-                        const synthContext = this.tinySynth.getAudioContext();
-                        if (synthContext && synthContext.state === 'suspended') {
-                            await synthContext.resume();
-                            console.log('🔊 TinySynth context activated');
-                        }
-                    }
-                } catch (error) {
-                    console.error('Failed to activate audio context:', error);
-                }
+                await this.audioContext.resume();
+                this.updateStatus('Audio context resumed ✔');
             }
         };
-
-        // Setup activation on various user interactions
-        ['click', 'touchstart', 'keydown'].forEach(event => {
-            document.addEventListener(event, activateAudio, {
-                once: true
-            });
-        });
+        
+        document.addEventListener('click', resumeAudio, { once: true });
+        document.addEventListener('touchstart', resumeAudio, { once: true });
     }
-
-    async playTrack(trackData) {
-        if (!trackData) {
-            throw new Error('No track data provided');
-        }
-
+    
+    async playTrack(fileInfo) {
         try {
+            this.updateStatus(`Loading track: ${fileInfo.name}...`);
+            
             // Stop any current playback
-            this.stop();
-
-            const trackUrl = `/music/${trackData.filename}`;
-            this.updateStatus(`Loading ${trackData.filename}...`);
-
-            // Ensure audio contexts are ready
-            if (this.audioContext.state === 'suspended') {
-                await this.audioContext.resume();
+            if (this.isPlaying) {
+                this.stop();
             }
-
-            if (trackData.type === 'tracker') {
-                await this.playTrackerModule(trackUrl, trackData);
-            } else if (trackData.type === 'midi') {
-                await this.playMidiFile(trackUrl, trackData);
+            
+            // Fetch the file
+            const response = await fetch(`/music/${fileInfo.name}`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch file: ${response.statusText}`);
+            }
+            
+            const arrayBuffer = await response.arrayBuffer();
+            
+            // Determine file type and play accordingly
+            const ext = fileInfo.name.split('.').pop().toLowerCase();
+            
+            if (['mod', 'xm', 'it', 's3m'].includes(ext)) {
+                await this.playModuleFile(arrayBuffer, fileInfo.name);
+            } else if (['mid', 'midi'].includes(ext)) {
+                await this.playMidiFile(arrayBuffer, fileInfo.name);
             } else {
-                throw new Error(`Unsupported file type: ${trackData.type}`);
+                throw new Error(`Unsupported file format: ${ext}`);
             }
-
-            this.isPlaying = true;
-            this.isPaused = false;
-            this.playbackType = trackData.type;
-
-            // Update UI state
-            if (this.uiController) {
-                this.uiController.updatePlaybackState(true, false);
-            }
-
-            this.updateStatus(`Playing: ${trackData.filename} ♪`);
-
+            
         } catch (error) {
-            this.handlePlaybackError('Playback failed', error);
+            console.error('Playback error:', error);
+            this.updateStatus(`Playback failed: ${error.message}`);
             throw error;
         }
     }
-
-    async playTrackerModule(url, trackData) {
-        if (!this.chiptunePlayer) {
-            throw new Error('ChiptuneJS player not available');
-        }
-
+    
+    async playModuleFile(arrayBuffer, filename) {
         try {
-            this.updateStatus('Downloading tracker module...');
-
-            // Use ChiptuneJS's built-in loading mechanism
+            if (!this.chiptunePlayer) {
+                throw new Error('ChiptuneJS not initialized');
+            }
+            
+            this.updateStatus(`Loading module: ${filename}...`);
+            
+            // Ensure audio context is running
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+            }
+            
+            // Load the module file
             await new Promise((resolve, reject) => {
-                this.chiptunePlayer.load(url, (buffer) => {
-                    if (buffer) {
-                        try {
-                            this.chiptunePlayer.play(buffer);
-                            this.currentPlayback = {
-                                type: 'chiptune',
-                                player: this.chiptunePlayer
-                            };
-
-                            // Start progress monitoring
-                            this.startProgressMonitoring();
-
-                            // Set up end handler
-                            this.chiptunePlayer.onEnded(() => {
-                                this.handleTrackEnd();
-                            });
-
-                            this.updateStatus('ChiptuneJS playback started ✔');
-                            resolve();
-                        } catch (playError) {
-                            reject(playError);
-                        }
-                    } else {
-                        reject(new Error('Failed to load tracker module'));
-                    }
+                this.chiptunePlayer.load(arrayBuffer, (buffer) => {
+                    console.log('Module loaded successfully');
+                    resolve(buffer);
+                }, (error) => {
+                    console.error('Module loading failed:', error);
+                    reject(error);
                 });
             });
-
+            
+            // Get metadata
+            const metadata = this.chiptunePlayer.metadata();
+            if (metadata) {
+                console.log('Module metadata:', metadata);
+                this.duration = this.chiptunePlayer.duration();
+            }
+            
+            // Start playback
+            this.chiptunePlayer.play();
+            
+            this.currentPlayback = {
+                type: 'module',
+                instance: this.chiptunePlayer,
+                filename: filename
+            };
+            
+            this.playbackType = 'module';
+            this.isPlaying = true;
+            this.isPaused = false;
+            
+            // Start progress updates
+            this.startProgressUpdates();
+            
+            this.updateStatus(`Playing module: ${filename}`);
+            
         } catch (error) {
-            throw new Error(`Tracker module playback failed: ${error.message}`);
+            console.error('Module playback failed:', error);
+            throw new Error(`Module playback failed: ${error.message}`);
         }
     }
-
-    async playMidiFile(url, trackData) {
-        const currentSynth = this.getCurrentMidiSynth();
-
-        if (!currentSynth) {
-            throw new Error('No MIDI synthesizer available');
-        }
-
+    
+    async playMidiFile(arrayBuffer, filename) {
         try {
-            this.updateStatus(`Loading MIDI file with ${this.currentMidiSynth}...`);
-
-            if (this.currentMidiSynth === 'tinysynth') {
-                await this.playMidiWithTinySynth(url);
-            } else if (this.currentMidiSynth === 'midicube') {
-                await this.playMidiWithMidicube(url);
+            this.updateStatus(`Loading MIDI file: ${filename}...`);
+            
+            if (this.currentMidiSynth === 'midicube' && this.midicubeReady) {
+                // Use Midicube for playback
+                await this.midicube.loadMIDI(arrayBuffer);
+                
+                // Set volume
+                this.midicube.setVolume(this.volume);
+                
+                // Start playback
+                this.midicube.play();
+                
+                this.currentPlayback = {
+                    type: 'midicube',
+                    instance: this.midicube,
+                    filename: filename
+                };
+                
+                this.playbackType = 'midi';
+                this.isPlaying = true;
+                this.isPaused = false;
+                
+                // Start progress updates
+                this.startProgressUpdates();
+                
+                this.updateStatus(`Playing MIDI with Midicube: ${filename}`);
+                
+            } else if (this.synthesizerReady) {
+                // Fallback to TinySynth
+                console.log('Using TinySynth for MIDI playback');
+                
+                // Parse MIDI file
+                const midiData = parseMIDI(new Uint8Array(arrayBuffer));
+                if (!midiData || !midiData.tracks) {
+                    throw new Error('Invalid MIDI file');
+                }
+                
+                // Play with TinySynth
+                this.playMidiWithTinySynth(midiData, filename);
+                
+            } else {
+                throw new Error('No MIDI synthesizer available');
             }
-
-            this.currentPlayback = {
-                type: 'midi',
-                player: currentSynth,
-                synthType: this.currentMidiSynth
-            };
-
-            // Start progress monitoring
-            this.startProgressMonitoring();
-
-            this.updateStatus(`${this.currentMidiSynth} MIDI playback started ✔`);
-
+            
         } catch (error) {
+            console.error('MIDI playback failed:', error);
             throw new Error(`MIDI playback failed: ${error.message}`);
         }
     }
-
-    async playMidiWithTinySynth(url) {
-        if (!this.tinySynth || !this.synthesizerReady) {
-            throw new Error('TinySynth not available or not ready');
-        }
-
-        // TinySynth can load MIDI directly from URL
-        await new Promise((resolve, reject) => {
-            this.tinySynth.loadMIDIUrl(url);
-
-            // Wait a moment for loading
-            setTimeout(() => {
-                try {
-                    this.tinySynth.playMIDI();
-
-                    // Get duration if available
-                    if (this.tinySynth.getTotalTime) {
-                        this.duration = this.tinySynth.getTotalTime();
-                    }
-
-                    resolve();
-                } catch (playError) {
-                    reject(playError);
-                }
-            }, 500); // Give it time to load
-        });
+    
+    playMidiWithTinySynth(midiData, filename) {
+        // Reset TinySynth
+        this.tinySynth.reset();
+        
+        // Load MIDI data
+        this.tinySynth.loadMIDI(midiData);
+        
+        // Get duration
+        this.duration = midiData.duration || 0;
+        
+        // Start playback
+        this.tinySynth.play();
+        
+        this.currentPlayback = {
+            type: 'tinysynth',
+            instance: this.tinySynth,
+            midiData: midiData,
+            filename: filename
+        };
+        
+        this.playbackType = 'midi';
+        this.isPlaying = true;
+        this.isPaused = false;
+        
+        // Start progress updates
+        this.startProgressUpdates();
+        
+        this.updateStatus(`Playing MIDI with TinySynth: ${filename}`);
     }
-
-    async playMidiWithMidicube(url) {
-        if (!this.midicube || !this.midicubeReady) {
-            throw new Error('Midicube not available or not ready');
-        }
-
-        if (!this.currentSoundfont) {
-            throw new Error('No SoundFont loaded for Midicube');
-        }
-
-        try {
-            // Download MIDI file
-            const response = await fetch(url);
-            const midiData = await response.arrayBuffer();
-
-            // Load and play MIDI with Midicube
-            await this.midicube.loadMIDI(midiData);
-            this.midicube.play();
-
-            // Get duration if available
-            if (this.midicube.getDuration) {
-                this.duration = this.midicube.getDuration();
-            }
-
-        } catch (error) {
-            throw new Error(`Midicube playback failed: ${error.message}`);
-        }
-    }
-
-    getCurrentMidiSynth() {
-        switch (this.currentMidiSynth) {
-            case 'tinysynth':
-                return this.tinySynth;
-            case 'midicube':
-                return this.midicube;
-            default:
-                return null;
-        }
-    }
-
-    pause() {
-        if (!this.isPlaying || this.isPaused) return;
-
-        try {
-            this.isPaused = true;
-
-            if (this.currentPlayback?.type === 'chiptune' && this.chiptunePlayer) {
-                this.chiptunePlayer.togglePause();
-            } else if (this.currentPlayback?.type === 'midi') {
-                if (this.currentPlayback.synthType === 'tinysynth' && this.tinySynth) {
-                    // TinySynth doesn't have pause, so we stop and track position
-                    if (this.tinySynth.getPlayTime) {
-                        this.pausedPosition = this.tinySynth.getPlayTime();
-                    }
-                    this.tinySynth.stopMIDI();
-                } else if (this.currentPlayback.synthType === 'midicube' && this.midicube) {
-                    this.midicube.pause();
-                }
-            }
-
-            if (this.uiController) {
-                this.uiController.updatePlaybackState(true, true);
-            }
-
-            this.updateStatus('Paused ⏸');
-
-        } catch (error) {
-            console.error('Pause error:', error);
-        }
-    }
-
-    resume() {
-        if (!this.isPaused) return;
-
-        try {
-            this.isPaused = false;
-
-            if (this.currentPlayback?.type === 'chiptune' && this.chiptunePlayer) {
-                this.chiptunePlayer.togglePause();
-            } else if (this.currentPlayback?.type === 'midi') {
-                if (this.currentPlayback.synthType === 'tinysynth' && this.tinySynth) {
-                    // Resume MIDI from saved position
-                    this.tinySynth.playMIDI();
-                    if (this.pausedPosition && this.tinySynth.setPlayTime) {
-                        this.tinySynth.setPlayTime(this.pausedPosition);
-                    }
-                } else if (this.currentPlayback.synthType === 'midicube' && this.midicube) {
-                    this.midicube.resume();
-                }
-            }
-
-            if (this.uiController) {
-                this.uiController.updatePlaybackState(true, false);
-            }
-
-            this.updateStatus('Resumed ♪');
-
-        } catch (error) {
-            console.error('Resume error:', error);
-        }
-    }
-
-    stop() {
-        try {
-            this.isPlaying = false;
-            this.isPaused = false;
-            this.currentTime = 0;
-            this.pausedPosition = 0;
-
-            if (this.currentPlayback?.type === 'chiptune' && this.chiptunePlayer) {
-                this.chiptunePlayer.stop();
-            } else if (this.currentPlayback?.type === 'midi') {
-                if (this.currentPlayback.synthType === 'tinysynth' && this.tinySynth) {
-                    this.tinySynth.stopMIDI();
-                    // Send all notes off
-                    for (let ch = 0; ch < 16; ch++) {
-                        this.tinySynth.send([0xB0 | ch, 123, 0], 0);
-                    }
-                } else if (this.currentPlayback.synthType === 'midicube' && this.midicube) {
-                    this.midicube.stop();
-                }
-            }
-
-            this.currentPlayback = null;
-            this.playbackType = null;
-
-            this.stopProgressMonitoring();
-
-            if (this.uiController) {
-                this.uiController.updatePlaybackState(false, false);
-                this.uiController.updateProgress(0, 0);
-            }
-
-            this.updateStatus('Stopped ⏹');
-
-        } catch (error) {
-            console.error('Stop error:', error);
-        }
-    }
-
-    setVolume(volume) {
-        this.volume = Math.max(0, Math.min(1, volume));
-
-        if (this.gainNode) {
-            this.gainNode.gain.value = this.volume;
-        }
-
-        // TinySynth has its own volume control
-        if (this.tinySynth && this.tinySynth.setMasterVol) {
-            this.tinySynth.setMasterVol(Math.floor(this.volume * 127));
-        }
-
-        // Midicube volume is controlled through the gain node
-        if (this.midicube && this.midicube.setVolume) {
-            this.midicube.setVolume(this.volume);
-        }
-
-        if (this.uiController) {
-            this.uiController.updateVolume(this.volume);
-        }
-    }
-
-    startProgressMonitoring() {
-        this.stopProgressMonitoring();
-
+    
+    startProgressUpdates() {
+        // Clear any existing interval
+        this.stopProgressUpdates();
+        
         this.progressInterval = setInterval(() => {
-            try {
-                let currentTime = 0;
-                let duration = 0;
-
-                if (this.currentPlayback?.type === 'chiptune' && this.chiptunePlayer) {
-                    // ChiptuneJS progress methods
-                    if (this.chiptunePlayer.getCurrentTime) {
-                        currentTime = this.chiptunePlayer.getCurrentTime();
+            if (this.currentPlayback && this.currentPlayback.instance) {
+                const instance = this.currentPlayback.instance;
+                
+                if (this.currentPlayback.type === 'module') {
+                    // ChiptuneJS progress
+                    if (instance.currentPlayingNode) {
+                        this.currentTime = instance.currentPlayingNode.context.currentTime - 
+                                         instance.currentPlayingNode.startTime;
+                        this.duration = instance.duration();
                     }
-                    if (this.chiptunePlayer.duration) {
-                        duration = this.chiptunePlayer.duration();
+                } else if (this.currentPlayback.type === 'tinysynth') {
+                    // TinySynth progress
+                    if (instance.getPlayStatus && instance.getPlayStatus() === 1) {
+                        const status = instance.getPlayStatus();
+                        if (status && status.currentTime !== undefined) {
+                            this.currentTime = status.currentTime;
+                        }
                     }
-                } else if (this.currentPlayback?.type === 'midi') {
-                    if (this.currentPlayback.synthType === 'tinysynth' && this.tinySynth) {
-                        // TinySynth progress methods
-                        if (this.tinySynth.getPlayTime) {
-                            currentTime = this.tinySynth.getPlayTime();
-                        }
-                        if (this.tinySynth.getTotalTime) {
-                            duration = this.tinySynth.getTotalTime();
-                        }
-                    } else if (this.currentPlayback.synthType === 'midicube' && this.midicube) {
-                        // Midicube progress methods
-                        if (this.midicube.getCurrentTime) {
-                            currentTime = this.midicube.getCurrentTime();
-                        }
-                        if (this.midicube.getDuration) {
-                            duration = this.midicube.getDuration();
-                        }
+                } else if (this.currentPlayback.type === 'midicube') {
+                    // Midicube progress
+                    this.currentTime = instance.getCurrentTime();
+                    this.duration = instance.getDuration();
+                    
+                    // Check if playback finished
+                    if (!instance.isPlaying && this.isPlaying) {
+                        this.handlePlaybackEnded();
                     }
                 }
-
-                this.currentTime = currentTime;
-                this.duration = duration;
-
+                
+                // Update UI
                 if (this.uiController) {
                     this.uiController.updateProgress(this.currentTime, this.duration);
                 }
-
-                // Check if track ended (with some buffer)
-                if (duration > 0 && currentTime >= duration - 0.1) {
-                    this.handleTrackEnd();
-                }
-
-            } catch (error) {
-                console.warn('Progress monitoring error:', error);
             }
         }, 100);
     }
-
-    stopProgressMonitoring() {
+    
+    stopProgressUpdates() {
         if (this.progressInterval) {
             clearInterval(this.progressInterval);
             this.progressInterval = null;
         }
     }
-
-    handleTrackEnd() {
+    
+    handlePlaybackEnded() {
+        console.log('Playback ended');
         this.stop();
-        this.updateStatus('Track ended');
-
+        
         if (this.uiController) {
-            this.uiController.handleTrackEnd();
+            this.uiController.handlePlaybackEnded();
         }
     }
-
-    handlePlaybackError(context, error) {
-        console.error(`${context}:`, error);
-        this.updateStatus(`ERROR: ${context} - ${error.message}`);
-
-        if (this.uiController) {
-            this.uiController.showError(`${context}: ${error.message}`);
+    
+    play() {
+        if (this.isPaused && this.currentPlayback) {
+            this.resume();
         }
-
-        this.stop();
     }
-
+    
+    pause() {
+        if (!this.isPlaying || !this.currentPlayback) {
+            return;
+        }
+        
+        const instance = this.currentPlayback.instance;
+        
+        if (this.currentPlayback.type === 'module') {
+            instance.togglePause();
+        } else if (this.currentPlayback.type === 'tinysynth') {
+            instance.pause();
+        } else if (this.currentPlayback.type === 'midicube') {
+            instance.pause();
+        }
+        
+        this.isPaused = true;
+        this.updateStatus('Paused');
+    }
+    
+    resume() {
+        if (!this.isPaused || !this.currentPlayback) {
+            return;
+        }
+        
+        const instance = this.currentPlayback.instance;
+        
+        if (this.currentPlayback.type === 'module') {
+            instance.togglePause();
+        } else if (this.currentPlayback.type === 'tinysynth') {
+            instance.resume();
+        } else if (this.currentPlayback.type === 'midicube') {
+            instance.resume();
+        }
+        
+        this.isPaused = false;
+        this.updateStatus('Resumed');
+    }
+    
+    stop() {
+        if (!this.currentPlayback) {
+            return;
+        }
+        
+        this.stopProgressUpdates();
+        
+        const instance = this.currentPlayback.instance;
+        
+        try {
+            if (this.currentPlayback.type === 'module') {
+                instance.stop();
+            } else if (this.currentPlayback.type === 'tinysynth') {
+                instance.stop();
+            } else if (this.currentPlayback.type === 'midicube') {
+                instance.stop();
+            }
+        } catch (error) {
+            console.error('Error stopping playback:', error);
+        }
+        
+        this.currentPlayback = null;
+        this.playbackType = null;
+        this.isPlaying = false;
+        this.isPaused = false;
+        this.currentTime = 0;
+        
+        this.updateStatus('Stopped');
+    }
+    
+    setVolume(value) {
+        this.volume = Math.max(0, Math.min(1, value));
+        
+        if (this.gainNode) {
+            this.gainNode.gain.value = this.volume;
+        }
+        
+        // Update synth volumes
+        if (this.tinySynth) {
+            this.tinySynth.setMasterVol(Math.round(this.volume * 127));
+        }
+        
+        if (this.midicube) {
+            this.midicube.setVolume(this.volume);
+        }
+        
+        // Update ChiptuneJS volume if playing
+        if (this.currentPlayback && this.currentPlayback.type === 'module') {
+            const instance = this.currentPlayback.instance;
+            if (instance.currentPlayingNode && instance.currentPlayingNode.gainNode) {
+                instance.currentPlayingNode.gainNode.gain.value = this.volume;
+            }
+        }
+    }
+    
+    seek(position) {
+        if (!this.currentPlayback || !this.duration) {
+            return;
+        }
+        
+        const seekTime = position * this.duration;
+        
+        if (this.currentPlayback.type === 'module') {
+            // ChiptuneJS doesn't support seeking well
+            console.warn('Seeking not fully supported for module files');
+        } else if (this.currentPlayback.type === 'tinysynth') {
+            // TinySynth seeking is limited
+            console.warn('Seeking not fully supported for TinySynth');
+        } else if (this.currentPlayback.type === 'midicube' && this.midicube.seek) {
+            this.midicube.seek(seekTime);
+        }
+    }
+    
     updateStatus(message) {
-        console.log('🎵 [Fallback]', message);
-
+        console.log(`📊 Status: ${message}`);
         if (this.uiController) {
             this.uiController.updateSystemStatus(message);
         }
     }
-
-    // Compatibility properties
-    get fallbackMode() {
-        return true;
-    }
-    get useAudioWorklet() {
-        return false;
-    }
-
-    // Public API methods
-    getStatus() {
+    
+    // Diagnostic methods
+    getEngineStatus() {
         return {
+            audioContext: this.audioContext ? this.audioContext.state : 'not initialized',
+            chiptuneJS: this.chiptunePlayer ? 'ready' : 'not initialized',
+            tinySynth: this.synthesizerReady ? 'ready' : 'not initialized',
+            midicube: this.midicubeReady ? 'ready' : 'not initialized',
+            currentSynth: this.currentMidiSynth,
+            availableSynths: this.availableSynths,
+            soundfonts: this.loadedSoundfonts.length,
             isPlaying: this.isPlaying,
             isPaused: this.isPaused,
-            currentTime: this.currentTime,
-            duration: this.duration,
-            volume: this.volume,
-            fallbackMode: true,
-            useAudioWorklet: false,
-            synthesizerReady: this.synthesizerReady,
-            midicubeReady: this.midicubeReady,
-            playbackType: this.playbackType,
-            currentMidiSynth: this.currentMidiSynth,
-            availableSynths: this.availableSynths,
-            currentSoundfont: this.currentSoundfont,
-            loadedSoundfonts: this.loadedSoundfonts,
-            hasChiptunePlayer: !!this.chiptunePlayer,
-            hasTinySynth: !!this.tinySynth,
-            hasMidicube: !!this.midicube
+            playbackType: this.playbackType
         };
     }
+    
+    async testAudioPath() {
+        try {
+            // Create a test oscillator
+            const oscillator = this.audioContext.createOscillator();
+            const testGain = this.audioContext.createGain();
+            
+            oscillator.connect(testGain);
+            testGain.connect(this.audioContext.destination);
+            
+            testGain.gain.value = 0.1;
+            oscillator.frequency.value = 440;
+            
+            oscillator.start();
+            setTimeout(() => oscillator.stop(), 200);
+            
+            this.updateStatus('Audio path test: Success ✔');
+            return true;
+        } catch (error) {
+            this.updateStatus('Audio path test failed: ' + error.message);
+            return false;
+        }
+    }
 }
+
+// Make globally available
+window.FallbackAudioEngine = FallbackAudioEngine;
