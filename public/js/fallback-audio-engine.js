@@ -169,7 +169,7 @@ class FallbackAudioEngine {
         this.tinySynth = new WebAudioTinySynth({
             quality: 1,
             useReverb: 0,
-            voices: 64
+            voices: 128
         });
         
         this.synthesizerReady = true;
