@@ -2,7 +2,7 @@
 (function() {
     'use strict';
     
-    console.log('🎵 Midicube Loader v1.1 initializing...');
+    console.log('🎵 Midicube Loader v1.2 initializing...');
     
     // Wait for the Midicube library to load
     let checkInterval = setInterval(function() {
@@ -27,9 +27,13 @@
                         this.midi.setContext(this.audioContext);
                     }
                     
-                    // Connect gain node if not already connected
-                    if (this.gainNode && this.gainNode.numberOfOutputs === 0) {
-                        this.gainNode.connect(this.audioContext.destination);
+                    // Only connect gain node if it's not already connected
+                    if (this.gainNode && this.gainNode.numberOfOutputs > 0 && !this.gainNode.numberOfInputs) {
+                        try {
+                            this.gainNode.connect(this.audioContext.destination);
+                        } catch (e) {
+                            console.log('Gain node already connected or connection not needed');
+                        }
                     }
                     
                     console.log('MIDICube instance created with audio context');
@@ -73,7 +77,6 @@
                 
                 parseMIDIData(arrayBuffer) {
                     // Basic MIDI parsing for fallback
-                    // This is a simplified version - you might want to use a proper MIDI parser
                     const bytes = new Uint8Array(arrayBuffer);
                     console.log('MIDI file size:', bytes.length, 'bytes');
                     // Store for later use
@@ -193,24 +196,42 @@
                 
                 async loadSoundfont(soundfontData) {
                     try {
-                        if (this.midi.loadPlugin) {
-                            // Use MIDI.js loadPlugin method
-                            await this.midi.loadPlugin({
-                                soundfontUrl: soundfontData,
-                                targetFormat: 'mp3',
-                                onsuccess: () => {
-                                    this.ready = true;
-                                    console.log('Soundfont loaded successfully');
-                                }
-                            });
-                        } else {
-                            // Store for later use
+                        console.log('Loading SoundFont...');
+                        
+                        // Check if soundfontData is already an ArrayBuffer
+                        if (soundfontData instanceof ArrayBuffer) {
+                            console.log('SoundFont is ArrayBuffer, converting for MIDI.js');
+                            // MIDI.js expects a URL or specific format, not raw ArrayBuffer
+                            // For now, we'll just store it and use default sounds
                             this.currentSoundfont = soundfontData;
                             this.ready = true;
+                            console.log('SoundFont stored (using default MIDI.js sounds)');
+                            return;
+                        }
+                        
+                        // If it's a URL string
+                        if (typeof soundfontData === 'string') {
+                            if (this.midi.loadPlugin) {
+                                // Use MIDI.js loadPlugin method
+                                await this.midi.loadPlugin({
+                                    soundfontUrl: soundfontData,
+                                    targetFormat: 'mp3',
+                                    onsuccess: () => {
+                                        this.ready = true;
+                                        this.currentSoundfont = soundfontData;
+                                        console.log('SoundFont loaded successfully via URL');
+                                    }
+                                });
+                            } else {
+                                // Just store the URL
+                                this.currentSoundfont = soundfontData;
+                                this.ready = true;
+                            }
                         }
                     } catch (error) {
                         console.error('Failed to load soundfont:', error);
-                        throw error;
+                        // Don't throw - use default sounds
+                        this.ready = true;
                     }
                 }
                 
@@ -264,8 +285,21 @@
                 // Create a stub to prevent errors
                 window.MIDICube = class MIDICube {
                     constructor() {
-                        throw new Error('Midicube library failed to load properly');
+                        console.warn('Midicube library failed to load - using stub');
+                        this.ready = false;
                     }
+                    async loadMIDI() { return Promise.resolve(); }
+                    async loadSoundfont() { return Promise.resolve(); }
+                    play() {}
+                    stop() {}
+                    pause() {}
+                    resume() {}
+                    getCurrentTime() { return 0; }
+                    getDuration() { return 0; }
+                    setVolume() {}
+                    noteOn() {}
+                    noteOff() {}
+                    allNotesOff() {}
                 };
             }
         }
