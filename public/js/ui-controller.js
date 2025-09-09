@@ -284,12 +284,8 @@ class UIController {
                 // For MIDI files, we need to restart playback from the beginning
                 // since TinySynth doesn't support seeking
                 if (this.currentTrack && this.currentTrack.type === 'midi') {
-                    if (seekTime < this.uiState.currentTime) {
-                        // Seeking backwards in MIDI - restart from beginning
-                        this.updateSystemStatus('⚠️ MIDI seeking backwards - restarting track');
-                        this.handlePlay();
-                        return;
-                    }
+	 	    const newTick = seekTime / this.audioEngine.tinySynth.tick2time;
+		    this.audioEngine.tinySynth.locateMIDI(newTick);
                 }
                 
                 // Try to seek
