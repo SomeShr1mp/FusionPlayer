@@ -462,7 +462,7 @@ class FallbackAudioEngine {
         }
         
         if (this.tinySynth && this.tinySynth.setMasterVol) {
-            this.tinySynth.setMasterVol(Math.floor(this.volume * 127));
+            this.tinySynth.setMasterVol(this.volume);
         }
         
         if (this.uiController) {
