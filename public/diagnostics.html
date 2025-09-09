@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Music Player Diagnostics</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #000;
+            color: #0f0;
+            padding: 20px;
+        }
+        .section {
+            margin: 20px 0;
+            border: 1px solid #0f0;
+            padding: 10px;
+        }
+        .error { color: #f00; }
+        .warning { color: #ff0; }
+        .success { color: #0f0; }
+        button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        pre {
+            background: #111;
+            padding: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 Music Player Diagnostics</h1>
+    
+    <div class="section">
+        <h2>1. Check Loaded Components</h2>
+        <button onclick="checkComponents()">Run Component Check</button>
+        <pre id="componentResults"></pre>
+    </div>
+    
+    <div class="section">
+        <h2>2. Test Audio Engine</h2>
+        <button onclick="testAudioEngine()">Test Audio Engine</button>
+        <pre id="engineResults"></pre>
+    </div>
+    
+    <div class="section">
+        <h2>3. Test UI Controller</h2>
+        <button onclick="testUIController()">Test UI Controller</button>
+        <pre id="uiResults"></pre>
+    </div>
+    
+    <div class="section">
+        <h2>4. Test Track Playback</h2>
+        <input type="text" id="testFilename" placeholder="Enter filename" value="test.mid" />
+        <button onclick="testPlayback()">Test Playback</button>
+        <pre id="playbackResults"></pre>
+    </div>
+    
+    <div class="section">
+        <h2>5. Console Output</h2>
+        <pre id="consoleOutput"></pre>
+    </div>
+    
+    <script>
+        // Capture console output
+        const originalLog = console.log;
+        const originalError = console.error;
+        let consoleBuffer = [];
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            consoleBuffer.push('[LOG] ' + args.join(' '));
+            updateConsole();
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            consoleBuffer.push('[ERROR] ' + args.join(' '));
+            updateConsole();
+        };
+        
+        function updateConsole() {
+            const output = document.getElementById('consoleOutput');
+            if (output) {
+                output.textContent = consoleBuffer.slice(-20).join('\n');
+            }
+        }
+        
+        function checkComponents() {
+            const results = [];
+            
+            // Check for audio engines
+            results.push('=== Audio Engines ===');
+            results.push(`FallbackAudioEngine: ${typeof FallbackAudioEngine !== 'undefined' ? '✓ Loaded' : '✗ Not found'}`);
+            results.push(`AudioEngine: ${typeof AudioEngine !== 'undefined' ? '✓ Loaded' : '✗ Not found'}`);
+            
+            // Check for UI Controller
+            results.push('\n=== UI Controller ===');
+            results.push(`UIController: ${typeof UIController !== 'undefined' ? '✓ Loaded' : '✗ Not found'}`);
+            results.push(`window.uiController: ${window.uiController ? '✓ Instance exists' : '✗ No instance'}`);
+            
+            // Check for player
+            results.push('\n=== Player ===');
+            results.push(`window.player: ${window.player ? '✓ Instance exists' : '✗ No instance'}`);
+            
+            // Check for audio libraries
+            results.push('\n=== Audio Libraries ===');
+            results.push(`ChiptuneJS: ${typeof ChiptuneJsPlayer !== 'undefined' ? '✓ Loaded' : '✗ Not found'}`);
+            results.push(`TinySynth: ${typeof WebAudioTinySynth !== 'undefined' ? '✓ Loaded' : '✗ Not found'}`);
+            results.push(`MIDICube: ${typeof MIDICube !== 'undefined' ? '✓ Loaded' : '✗ Not found'}`);
+            results.push(`MIDI.js: ${typeof MIDI !== 'undefined' ? '✓ Loaded' : '✗ Not found'}`);
+            
+            document.getElementById('componentResults').textContent = results.join('\n');
+        }
+        
+        async function testAudioEngine() {
+            const results = [];
+            
+            try {
+                if (window.player && window.player.audioEngine) {
+                    const engine = window.player.audioEngine;
+                    results.push('=== Audio Engine Info ===');
+                    results.push(`Type: ${engine.constructor.name}`);
+                    results.push(`Has playTrack: ${typeof engine.playTrack === 'function'}`);
+                    
+                    // Check playTrack method signature
+                    if (engine.playTrack) {
+                        const funcStr = engine.playTrack.toString();
+                        const params = funcStr.match(/async\s+playTrack\s*\(([^)]*)\)/);
+                        results.push(`playTrack params: ${params ? params[1] : 'unknown'}`);
+                        
+                        // Check what properties it looks for
+                        if (funcStr.includes('fileInfo.filename')) {
+                            results.push('✓ Looks for fileInfo.filename');
+                        }
+                        if (funcStr.includes('fileInfo.name')) {
+                            results.push('✓ Looks for fileInfo.name');
+                        }
+                        if (funcStr.includes('trackData.filename')) {
+                            results.push('✓ Looks for trackData.filename');
+                        }
+                    }
+                    
+                    // Check engine status
+                    if (engine.getEngineStatus) {
+                        const status = engine.getEngineStatus();
+                        results.push('\n=== Engine Status ===');
+                        results.push(JSON.stringify(status, null, 2));
+                    }
+                } else {
+                    results.push('✗ No audio engine found');
+                }
+            } catch (error) {
+                results.push(`Error: ${error.message}`);
+            }
+            
+            document.getElementById('engineResults').textContent = results.join('\n');
+        }
+        
+        async function testUIController() {
+            const results = [];
+            
+            try {
+                if (window.uiController) {
+                    const ui = window.uiController;
+                    results.push('=== UI Controller Info ===');
+                    results.push(`Type: ${ui.constructor.name}`);
+                    results.push(`Current track: ${ui.currentTrack ? JSON.stringify(ui.currentTrack, null, 2) : 'None'}`);
+                    results.push(`Current index: ${ui.currentIndex}`);
+                    results.push(`Playlist length: ${ui.playlist ? ui.playlist.length : 0}`);
+                    
+                    if (ui.currentTrack) {
+                        results.push('\n=== Current Track Properties ===');
+                        for (const key in ui.currentTrack) {
+                            results.push(`${key}: ${ui.currentTrack[key]}`);
+                        }
+                    }
+                    
+                    if (ui.getState) {
+                        const state = ui.getState();
+                        results.push('\n=== UI State ===');
+                        results.push(JSON.stringify(state, null, 2));
+                    }
+                } else {
+                    results.push('✗ No UI controller instance found');
+                }
+            } catch (error) {
+                results.push(`Error: ${error.message}`);
+            }
+            
+            document.getElementById('uiResults').textContent = results.join('\n');
+        }
+        
+        async function testPlayback() {
+            const results = [];
+            const filename = document.getElementById('testFilename').value;
+            
+            try {
+                results.push(`Testing playback with filename: ${filename}`);
+                
+                // Create test track object with various property names
+                const testTrack = {
+                    filename: filename,
+                    name: filename,
+                    file: filename,
+                    type: filename.endsWith('.mid') || filename.endsWith('.midi') ? 'midi' : 'tracker'
+                };
+                
+                results.push('\nTest track object:');
+                results.push(JSON.stringify(testTrack, null, 2));
+                
+                if (window.player && window.player.audioEngine) {
+                    results.push('\nCalling playTrack...');
+                    
+                    // Try to call playTrack
+                    try {
+                        await window.player.audioEngine.playTrack(testTrack);
+                        results.push('✓ playTrack called successfully');
+                    } catch (playError) {
+                        results.push(`✗ playTrack error: ${playError.message}`);
+                        results.push(`Stack: ${playError.stack}`);
+                    }
+                } else {
+                    results.push('✗ No audio engine available');
+                }
+            } catch (error) {
+                results.push(`Error: ${error.message}`);
+            }
+            
+            document.getElementById('playbackResults').textContent = results.join('\n');
+        }
+        
+        // Run initial check
+        setTimeout(checkComponents, 500);
+    </script>
+</body>
+</html>
