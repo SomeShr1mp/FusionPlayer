@@ -394,7 +394,7 @@ app.get('/health', async (req, res) => {
         
         // Check for critical JS and WASM files
         const criticalFiles = [
-            'audio-worklet-processor.js',
+            'fallback-audio-engine.js',
             'libopenmpt.js',
             'libopenmpt.js.mem',
             'chiptune2.js'
@@ -426,10 +426,10 @@ app.get('/health', async (req, res) => {
                 jsFiles: jsFileCount
             },
             missingCriticalFiles: missingFiles,
-            version: '2.0.0',
+            version: '2.3.0',
             engines: {
                 openmpt: missingFiles.includes('libopenmpt.js') ? 'missing' : 'available',
-                audioWorklet: missingFiles.includes('audio-worklet-processor.js') ? 'missing' : 'available'
+                audioWorklet: missingFiles.includes('fallback-audio-engine.js') ? 'missing' : 'available'
             }
         };
         
