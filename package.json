@@ -1,7 +1,7 @@
 {
   "name": "fusion-music-player",
   "version": "2.2.0",
-  "description": "Advanced retro CRT-style music player with Web Audio Direct Mode, OpenMPT.js, and TinySynth support",
+  "description": "Advanced retro CRT-style music player with Web Audio Direct Mode, OpenMPT.js, TinySynth, and SpessaSynth support",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -11,7 +11,8 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f music-player",
-    "docker:restart": "docker-compose restart music-player"
+    "docker:restart": "docker-compose restart music-player",
+    "setup:spessa": "node setup-spessa.js"
   },
   "keywords": [
     "music",
@@ -20,18 +21,20 @@
     "midi",
     "openmpt",
     "TinySynth",
+    "spessasynth",
     "retro",
     "crt",
     "web-audio",
-    "Insanity",
-    "Help"
+    "soundfont",
+    "synthesis"
   ],
   "author": "Fusion Music Player Project",
   "license": "GPLv3",
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "multer": "^1.4.5-lts.1"
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "spessasynth_lib": "^4.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
@@ -51,8 +54,29 @@
   "audio-engines": {
     "openmpt": {
       "version": "0.6.9",
-      "formats": [".mod", ".xm", ".it", ".s3m"],
+      "formats": [
+        ".mod",
+        ".xm",
+        ".it",
+        ".s3m"
+      ],
       "description": "Professional tracker module playback"
+    },
+    "spessasynth": {
+      "version": "4.0.0",
+      "formats": [
+        ".mid",
+        ".midi"
+      ],
+      "description": "Advanced MIDI synthesis with comprehensive SoundFont support"
+    },
+    "tinysynth": {
+      "version": "1.0.0",
+      "formats": [
+        ".mid",
+        ".midi"
+      ],
+      "description": "Lightweight MIDI synthesis (fallback)"
     }
   },
   "browser-requirements": {

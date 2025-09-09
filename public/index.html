@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FUSION MUSIC PLAYER v2.3.0</title>
+    <title>FUSION MUSIC PLAYER v2.5.1</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
@@ -11,7 +11,7 @@
     <div class="container">
         <div class="header">
             <div class="title">▓ FUSION MUSIC PLAYER ▓</div>
-            <div class="subtitle">Web Audio Direct Mode :: ChiptuneJS + TinySynth :: v2.3.0</div>
+            <div class="subtitle">Web Audio Direct Mode :: ChiptuneJS + SpessaSynth + TinySynth :: v2.5.1</div>
         </div>
         
         <div class="main-content">
@@ -26,9 +26,9 @@
                 <div class="upload-area" id="uploadArea">
                     <div>▶ DROP FILES HERE OR CLICK TO UPLOAD ◀</div>
                     <div style="font-size: 10px; margin-top: 5px; color: #00aa00;">
-                        Supported: .MOD .XM .IT .S3M .MID .MIDI
+                        Supported: .MOD .XM .IT .S3M .MID .MIDI .SF2 .SF3
                     </div>
-                    <input type="file" id="fileInput" style="display: none;" multiple accept=".mod,.xm,.it,.s3m,.mid,.midi">
+                    <input type="file" id="fileInput" style="display: none;" multiple accept=".mod,.xm,.it,.s3m,.mid,.midi,.sf2,.sf3">
                 </div>
             </div>
             
@@ -57,13 +57,32 @@
                     <button class="btn" id="stopBtn" disabled>⏹ STOP</button>
                     <button class="btn" id="nextBtn">NEXT ►►</button>
                 </div>
-                
                 <div class="volume-control">
                     <span>VOL:</span>
                     <div class="volume-slider" id="volumeSlider">
                         <div class="volume-fill" id="volumeFill"></div>
                     </div>
                     <span id="volumeDisplay">50%</span>
+                </div>
+                
+		<!-- MIDI Synthesizer Selection -->
+                <div class="synth-selector" style="margin-top: 15px; padding: 10px; border: 1px solid #00aa00; background: rgba(0,255,0,0.05);">
+                    <h4 style="margin: 0 0 8px 0; color: #00ffff; font-size: 12px;">▶ MIDI SYNTHESIZER</h4>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                        <button class="btn btn-small" id="synthAutoBtn" onclick="selectSynth('auto')" style="padding: 4px 8px; font-size: 10px;">AUTO</button>
+                        <button class="btn btn-small" id="synthSpessaBtn" onclick="selectSynth('spessasynth')" style="padding: 4px 8px; font-size: 10px;">SPESSASYNTH</button>
+                        <button class="btn btn-small" id="synthTinyBtn" onclick="selectSynth('tinysynth')" style="padding: 4px 8px; font-size: 10px;">TINYSYNTH</button>
+                        <button class="btn btn-small" onclick="loadCustomSoundFont()" style="padding: 4px 8px; font-size: 10px;">LOAD SF2</button>
+                    </div>
+                    <div id="synthStatus" style="font-size: 10px; margin-top: 5px; color: #00aa00;">
+                        Initializing synthesizers...
+                    </div>
+                </div>		
+
+                <div class="synth-info" id="synthInfo" style="margin-top: 10px; padding: 5px; border: 1px solid #004400; background: rgba(0,34,0,0.3); font-size: 10px;">
+                    <div>Engine: <span id="currentSynthEngine">Loading...</span></div>
+                    <div>SoundFont: <span id="currentSoundFont">None</span></div>
+                    <div>Voices: <span id="activeVoices">0</span></div>
                 </div>
             </div>
         </div>
@@ -78,21 +97,29 @@
     <script src="/js/libopenmpt.js"></script>
     <script src="/js/openmpt-loader.js"></script> <!-- CRITICAL: Must load between libopenmpt and chiptune2 -->
     <script src="/js/chiptune2.js"></script>
+    
+    <!-- SpessaSynth Library -->
+    <script src="/js/spessasynth_lib.js"></script>
+    <script src="/js/spessasynth-wrapper.js"></script>
+    <script src="/js/spessasynth-engine.js"></script>
+    
+    <!-- Fallback MIDI Libraries -->
     <script src="/js/webaudio-tinysynth.js"></script>
     <script src="/js/midi-parser.js"></script>
     
     <!-- Core Application Files -->
-    <script src="/js/fallback-audio-engine.js"></script> <!-- Use the fixed version -->
+    <script src="/js/audio-engine.js"></script>
     <script src="/js/ui-controller.js"></script>
+    <script src="/js/fallback-audio-engine.js"></script>
     
     <script>
-        // Enhanced initialization with simplified approach
+        // Enhanced initialization with SpessaSynth support
         let player = null;
         let uiController = null;
         
         async function initializePlayer() {
             try {
-                console.log('🎵 Fusion Music Player v2.1 - Initializing...');
+                console.log('🎵 Fusion Music Player v2.5.1 - Initializing with SpessaSynth...');
                 
                 // Initialize UI Controller first
                 uiController = new UIController();
@@ -101,15 +128,15 @@
                 // Make uiController globally available for onclick handlers
                 window.uiController = uiController;
                 
-                // Check if FallbackAudioEngine is available
-                if (typeof FallbackAudioEngine === 'undefined') {
-                    throw new Error('FallbackAudioEngine not available - check if fallback-audio-engine.js is loaded');
+                // Check if EnhancedAudioEngine is available
+                if (typeof EnhancedAudioEngine === 'undefined') {
+                    throw new Error('EnhancedAudioEngine not available - check if enhanced-audio-engine.js is loaded');
                 }
                 
-                // Use the fallback engine (it's more compatible)
-                console.log('🔄 Using Web Audio Direct Mode');
-                uiController.updateSystemStatus('Initializing Web Audio Engine...');
-                const audioEngine = new FallbackAudioEngine();
+                // Use the enhanced engine with SpessaSynth support
+                console.log('🔄 Using Web Audio Direct Mode with SpessaSynth');
+                uiController.updateSystemStatus('Initializing Enhanced Audio Engine...');
+                const audioEngine = new EnhancedAudioEngine();
                 
                 try {
                     await audioEngine.initialize();
@@ -135,6 +162,7 @@
                 const libraryStatus = {
                     'OpenMPT WASM': typeof Module !== 'undefined' && Module._openmpt_module_create_from_memory,
                     'ChiptuneJS': typeof ChiptuneJsPlayer !== 'undefined',
+                    'SpessaSynth': typeof SpessaSynthLoader !== 'undefined' || typeof window.SpessaSynth !== 'undefined',
                     'TinySynth': typeof WebAudioTinySynth !== 'undefined',
                     'Helper Functions': typeof UTF8ToString !== 'undefined' && typeof writeAsciiToMemory !== 'undefined'
                 };
@@ -149,12 +177,12 @@
                     warnings.push('Tracker files may have issues (helper functions missing)');
                 }
                 
-                if (!libraryStatus['TinySynth']) {
-                    warnings.push('MIDI files will not work (TinySynth not loaded)');
+                if (!libraryStatus['SpessaSynth'] && !libraryStatus['TinySynth']) {
+                    warnings.push('MIDI files will not work (no MIDI synthesizers loaded)');
                 }
                 
                 // Display status
-                let statusMsg = '🎵 Fusion Player v2.1 ready (Web Audio Direct Mode)';
+                let statusMsg = '🎵 Fusion Player v2.5.1 ready (Enhanced Mode with SpessaSynth)';
                 
                 if (warnings.length > 0) {
                     statusMsg += ' - ⚠️ ' + warnings.join(', ');
@@ -163,9 +191,12 @@
                 
                 uiController.updateSystemStatus(statusMsg);
                 
+                // Update synth info
+                uiController.updateSynthInfo();
+                
                 // Log library status
                 console.log('📚 Library Status:', libraryStatus);
-                console.log('✅ Fusion Music Player v2.1 ready');
+                console.log('✅ Fusion Music Player v2.5.1 ready');
                 
             } catch (error) {
                 console.error('❌ Player initialization failed:', error);
@@ -185,6 +216,99 @@
                 }
             }
         }
+
+	// Synthesizer selection functions
+        function selectSynth(synthType) {
+            if (player && player.audioEngine) {
+                player.audioEngine.setSynthesizer(synthType);
+                updateSynthStatus();
+                
+                // Update button states
+                document.querySelectorAll('.btn-small').forEach(btn => {
+                    btn.style.background = '';
+                });
+                
+                if (synthType === 'auto') {
+                    document.getElementById('synthAutoBtn').style.background = 'rgba(0,255,0,0.2)';
+                } else if (synthType === 'spessasynth') {
+                    document.getElementById('synthSpessaBtn').style.background = 'rgba(0,255,0,0.2)';
+                } else if (synthType === 'tinysynth') {
+                    document.getElementById('synthTinyBtn').style.background = 'rgba(0,255,0,0.2)';
+                }
+            }
+        }
+
+	function updateSynthStatus() {
+            if (player && player.audioEngine) {
+                const status = document.getElementById('synthStatus');
+                const activeSynth = player.audioEngine.activeSynth;
+                
+                if (activeSynth === player.audioEngine.spessaSynth) {
+                    status.innerHTML = '<span style="color: #00ff00;">● Active: SpessaSynth (High Quality)</span>';
+                } else if (activeSynth === player.audioEngine.tinySynth) {
+                    status.innerHTML = '<span style="color: #00dd00;">● Active: TinySynth (Lightweight)</span>';
+                } else {
+                    status.innerHTML = '<span style="color: #ff4444;">○ No synthesizer active</span>';
+                }
+                
+                // Show available synthesizers
+                const available = [];
+                if (player.audioEngine.spessaSynth && player.audioEngine.spessaSynth.isReady) {
+                    available.push('SpessaSynth');
+                }
+                if (player.audioEngine.tinySynth) {
+                    available.push('TinySynth');
+                }
+                
+                if (available.length > 0) {
+                    status.innerHTML += `<br><span style="font-size: 9px; color: #007700;">Available: ${available.join(', ')}</span>`;
+                }
+            }
+        }
+
+	async function loadCustomSoundFont() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.sf2,.sf3';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    // Check if SpessaSynth is available
+                    if (!player || !player.audioEngine || !player.audioEngine.spessaSynth) {
+                        alert('SpessaSynth is not available. Cannot load SoundFonts with TinySynth.');
+                        return;
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('musicFile', file);
+                    
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        
+                        // Load the uploaded SoundFont
+                        await player.audioEngine.loadSoundFont(`/soundfonts/${result.filename}`);
+                        updateSynthStatus();
+                        
+                        if (window.uiController) {
+                            window.uiController.updateSystemStatus(`SoundFont loaded: ${result.filename}`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('SoundFont upload failed:', error);
+                    alert('Failed to load SoundFont: ' + error.message);
+                }
+            };
+            
+            input.click();
+        }
         
         // Initialize when page loads
         window.addEventListener('load', () => {
@@ -201,6 +325,14 @@
                         console.log('🔊 Audio context activated');
                         player.audioEngine.updateStatus('Audio context activated - ready to play');
                         
+                        // Also check SpessaSynth context
+                        if (player.audioEngine.spessaSynth && player.audioEngine.spessaSynth.context) {
+                            if (player.audioEngine.spessaSynth.context.state === 'suspended') {
+                                await player.audioEngine.spessaSynth.context.resume();
+                                console.log('🔊 SpessaSynth context activated');
+                            }
+                        }
+                        
                         // Also check TinySynth context
                         if (player.audioEngine.tinySynth && player.audioEngine.tinySynth.getAudioContext) {
                             const synthContext = player.audioEngine.tinySynth.getAudioContext();
@@ -216,7 +348,7 @@
             }
         }, { passive: true });
         
-        // Basic keyboard shortcuts
+        // Enhanced keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (!player || !player.uiController) return;
             
@@ -258,6 +390,22 @@
                         player.audioEngine.setVolume(newVolume);
                     }
                     break;
+                case 'KeyS':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        if (player.uiController.showSynthSelector) {
+                            player.uiController.showSynthSelector();
+                        }
+                    }
+                    break;
+                case 'KeyF':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        if (player.uiController.showSoundfontSelector) {
+                            player.uiController.showSoundfontSelector();
+                        }
+                    }
+                    break;
             }
         });
         
@@ -277,8 +425,11 @@
                 'Duration': engine.duration?.toFixed(2),
                 'Volume': engine.volume,
                 'Has ChiptuneJS': !!engine.chiptunePlayer,
+                'Has SpessaSynth': !!engine.spessaSynth,
                 'Has TinySynth': !!engine.tinySynth,
-                'Current Playback Type': engine.playbackType
+                'Current Playback Type': engine.playbackType,
+                'Current Synth Engine': engine.currentSynthEngine,
+                'Current SoundFont': engine.currentSoundFont
             };
             
             console.table(status);
@@ -289,6 +440,7 @@
                 'libopenmpt': typeof libopenmpt !== 'undefined',
                 'ChiptuneJsConfig': typeof ChiptuneJsConfig !== 'undefined',
                 'ChiptuneJsPlayer': typeof ChiptuneJsPlayer !== 'undefined',
+                'SpessaSynth': typeof window.SpessaSynth !== 'undefined',
                 'WebAudioTinySynth': typeof WebAudioTinySynth !== 'undefined',
                 'UTF8ToString': typeof UTF8ToString !== 'undefined',
                 'writeAsciiToMemory': typeof writeAsciiToMemory !== 'undefined'
@@ -312,10 +464,10 @@
             
             return status;
         };
-        // Why are you looking at this??
-	// because you want to debug something, that's why. :)
+        
         // Add console helper message
         console.log('💡 Debug helper available - type debugAudio() in console to see current status');
+        console.log('🎹 Keyboard shortcuts: Space=Play/Pause, ←/→=Prev/Next, ↑/↓=Volume, Esc=Stop, Ctrl+S=Synth, Ctrl+F=SoundFont');
     </script>
 </body>
 </html>

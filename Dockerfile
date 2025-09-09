@@ -19,8 +19,15 @@ RUN addgroup -g 1001 -S nodejs && \
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && \
+# Create scripts directory and copy setup script
+RUN mkdir -p scripts
+COPY scipts/setup-spessasynth.js ./scripts/
+
+
+# After npm install, copy SpessaSynth files directly
+RUN npm ci && \
+    cp -f /app/node_modules/spessasynth_lib/dist/spessasynth_processor.min.js /app/public/js/ || true && \
+    cp -f /app/node_modules/spessasynth_lib/dist/spessasynth_processor.min.js.map /app/public/js/ || true && \
     npm cache clean --force
 
 # Copy application code
@@ -44,6 +51,14 @@ RUN set -e && \
 RUN curl -L -f -o /app/public/js/webaudio-tinysynth.js \
     https://g200kg.github.io/webaudio-tinysynth/webaudio-tinysynth.js || \
     echo "TinySynth download failed - MIDI support will be limited"
+
+# Checking if spessasynth_lib was properly installed
+RUN if [ -f "/app/public/js/spessasynth/spessasynth_lib.js" ]; then \
+        echo "✅ SpessaSynth successfully installed"; \
+    else \
+        echo "⚠️ SpessaSynth not found - MIDI will use TinySynth fallback"; \
+    fi
+
 
 # Download a compact SoundFont (optional, for enhanced MIDI)
 RUN curl -L -f -o /app/public/soundfonts/default.sf2 \
