@@ -22,13 +22,15 @@ A retro CRT-style music player that somehow manages to play tracker modules and 
 
 ##  What Makes This Special
 
-This project is a masterclass in "just keep adding libraries until something works." It features:
+This project is a masterclass in "just keep adding libraries and loaders until something works." It features:
 
-- **5 different audio libraries** because I couldn't figure out how to make one work properly
-- **3 fallback systems** for when the main system inevitably fails
+- **4 different audio libraries** because I couldn't figure out how to make one work properly
+- **A glorious fallback system** for when the main system inevitably fails
+- **Custom loaders for OpenMPT and MidiCube** *"Install these NPM packages they said, it would be easy they said, it would be fun they said."*
 - **Error handling** that mostly consists of `console.log("oh no")`
 - **Comments** written by someone who clearly forgot what their code does 5 minutes after writing it
 - **Variable names** like `thingy`, `audioStuff`, and `whyIsThisBroken`
+- **It can play both midi and various mod files!** To a certain degree before everything breaks and I cry
 
 ##  Built With The Help Of
 
@@ -79,9 +81,6 @@ curl -L -f -o public/js/libopenmpt.js.mem https://cdn.jsdelivr.net/gh/deskjet/ch
 curl -L -f -o public/js/chiptune2.js https://cdn.jsdelivr.net/gh/deskjet/chiptune2.js@master/chiptune2.js
 curl -L -f -o public/js/webaudio-tinysynth.js https://g200kg.github.io/webaudio-tinysynth/webaudio-tinysynth.js
 
-
-
-
 # Now time for NPM to do it's thing
 npm i
 
@@ -105,10 +104,12 @@ FusionPlayer/
 │   ├── midi-test.html          # The first iteration of the page... only go if you like MIDI test chords
 │   ├── css/styles.css          # CRT effects that make bugs look intentional
 │   ├── music/                  # Exactly what it says on the tin, use the provided test files or make your own!
+│   ├── soundfonts/             # Pretty much just the soundfonts folder, when using docker, the default one is preloaded. NPM users must find their own          
 │   └── js/
 │       ├── audio-engine.js     # The "main" engine (uses fallback anyway)
 │       ├── fallback-audio-engine.js  # The one that actually works
 │       ├── ui-controller.js    # UI logic held together with hope
+│       ├── midicube-loader.js  # The loader that my audio engines like. PLEASE DO NOT LET THE BREAK I CAN'T TAKE IT ANYMORE
 │       ├── openmpt-loader.js   # PLEASE GOD DO NOT LET THIS BREAK - IT BREAKS EVERYTHING
 │       └── midi-parser.js      # MIDI parsing that mostly works
 ├── docker-compose.yml          # Container config for the brave
@@ -127,7 +128,7 @@ FusionPlayer/
 ### Supported Formats
 - **Tracker Modules**: .mod, .xm, .it, .s3m (the classics)
 - **MIDI Files**: .mid, .midi (because who doesn't love GM patches)
-- **SoundFonts ---- SOOON **: .sf2 (for when built-in MIDI sounds aren't terrible enough)
+- **SoundFonts ---- SOOON --- Like really soon!!**: .sf2 (for when built-in MIDI sounds aren't terrible enough)
 
 ##  Configuration (Good Luck)
 
@@ -174,12 +175,12 @@ GPLv3 License - Feel free to copy this disaster and make it your own disaster.
 
 - **Stack Overflow** - For basically writing 80% of this code
 - **MDN Web Docs** - For explaining Web APIs to someone who clearly didn't listen in CS class 
-- **Letal ammounts of Caffine and Achohol ** - The real MVP
+- **Letal ammounts of Caffine and Achohol** - The real MVP
 - **Rubber Duck Debugging** - My most patient collaborator
 - **The Chiptune/Demoscene Community** - For keeping tracker music alive
 - **Every Developer** who made the libraries that actually work
 - **My Past Self** - For leaving comments that present me could understand 
-
+- **[James Lyerla](https://github.com/lyerlajd)** - Would not have been able to do much of anything on this project with out him
 ##  Support
 
 If it breaks (when it breaks), try:
