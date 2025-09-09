@@ -682,42 +682,64 @@ class UIController {
     }
     
     async handlePlay() {
-        try {
-            if (!this.currentTrack) {
-                this.showError('Please select a track first');
-                return;
-            }
-            
-            if (!this.audioEngine) {
-                this.showError('Audio engine not available');
-                return;
-            }
-            
-            // Check if MIDI track and Midicube is selected but no SoundFont is loaded
-            if (this.currentTrack.type === 'midi' && this.currentSynth === 'midicube' && !this.currentSoundfont) {
-                this.showError('Please load a SoundFont for Midicube');
-                return;
-            }
-            
-            // If paused, resume instead of restarting
-            if (this.uiState.isPaused) {
-                this.audioEngine.resume();
-                return;
-            }
-            
-            this.updateSystemStatus(`Starting playback: ${this.currentTrack.filename}...`);
-            
-            await this.audioEngine.playTrack(this.currentTrack);
-            
-            this.highlightTrack(this.currentIndex); // Update playing status
-            console.log(`✅ Playback started: ${this.currentTrack.filename}`);
-            
-        } catch (error) {
-            console.error('Playback error:', error);
-            this.showError('Playback error: ' + error.message);
-            this.updateSystemStatus('Playback failed');
+    try {
+        console.log('=== handlePlay DEBUG START ===');
+        console.log('currentTrack:', this.currentTrack);
+        console.log('currentTrack type:', typeof this.currentTrack);
+        
+        if (!this.currentTrack) {
+            this.showError('Please select a track first');
+            return;
         }
+        
+        console.log('currentTrack properties:', Object.keys(this.currentTrack));
+        console.log('currentTrack.filename:', this.currentTrack.filename);
+        console.log('currentTrack full object:', JSON.stringify(this.currentTrack, null, 2));
+        
+        if (!this.audioEngine) {
+            this.showError('Audio engine not available');
+            return;
+        }
+        
+        console.log('audioEngine type:', this.audioEngine.constructor.name);
+        console.log('audioEngine.playTrack exists:', typeof this.audioEngine.playTrack);
+        
+        // Check if MIDI track and Midicube is selected but no SoundFont is loaded
+        if (this.currentTrack.type === 'midi' && this.currentSynth === 'midicube' && !this.currentSoundfont) {
+            this.showError('Please load a SoundFont for Midicube');
+            return;
+        }
+        
+        // If paused, resume instead of restarting
+        if (this.uiState.isPaused) {
+            console.log('Resuming paused playback');
+            this.audioEngine.resume();
+            return;
+        }
+        
+        this.updateSystemStatus(`Starting playback: ${this.currentTrack.filename}...`);
+        
+        // Create a copy of currentTrack to ensure it doesn't get modified
+        const trackToPlay = { ...this.currentTrack };
+        console.log('trackToPlay (copy):', trackToPlay);
+        console.log('About to call playTrack with:', trackToPlay);
+        
+        // Call playTrack with the copy
+        await this.audioEngine.playTrack(trackToPlay);
+        
+        this.highlightTrack(this.currentIndex); // Update playing status
+        console.log(`✅ Playback started: ${this.currentTrack.filename}`);
+        console.log('=== handlePlay DEBUG END ===');
+        
+    } catch (error) {
+        console.error('=== handlePlay ERROR ===');
+        console.error('Error object:', error);
+        console.error('Error stack:', error.stack);
+        console.error('Playback error:', error);
+        this.showError('Playback error: ' + error.message);
+        this.updateSystemStatus('Playback failed');
     }
+}
     
     handlePause() {
         try {
