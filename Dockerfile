@@ -47,7 +47,7 @@ RUN curl -L -f -o /app/public/js/webaudio-tinysynth.js \
 
 # Download a compact SoundFont (optional, for enhanced MIDI)
 RUN curl -L -f -o /app/public/soundfonts/default.sf2 \
-    https://files.maxdevnet.cc/Music/SoundFonts/default.sf2 || \
+    https://github.com/ZDoom/gzdoom/raw/refs/heads/master/soundfont/gzdoom.sf2 || \
     echo "Default SoundFont download failed - will use TinySynth built-in sounds"
 
 
