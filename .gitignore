@@ -1,4 +1,4 @@
 .env
-public/soundfonts/*
+public/soundfonts
 node_modules
 logs
