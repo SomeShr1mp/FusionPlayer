@@ -55,3 +55,45 @@
 [2025-08-26T00:40:22.699Z] INFO: 📀 Found 3 files in music directory
 [2025-08-26T00:40:22.700Z] INFO: 🎼 Found 1 SoundFont files
 [2025-08-26T00:48:50.221Z] INFO: 🛑 Received SIGINT, shutting down gracefully
+[2025-09-09T00:02:58.144Z] INFO: 🎵 Initializing Fusion Music Player Server v2.5...
+[2025-09-09T00:02:58.151Z] INFO: 🌐 Server running on 0.0.0.0:3000
+[2025-09-09T00:02:58.151Z] INFO: 🐳 Docker mode: NO
+[2025-09-09T00:02:58.151Z] INFO: 🔗 Access URLs:
+[2025-09-09T00:02:58.152Z] INFO:    Local:    http://localhost:3000
+[2025-09-09T00:02:58.152Z] INFO:    Network:  http://0.0.0.0:3000
+[2025-09-09T00:02:58.152Z] INFO: 📦 WASM Support: Enabled with proper MIME types
+[2025-09-09T00:02:58.152Z] INFO: 🎹 Midicube Support: Enabled
+[2025-09-09T00:02:58.153Z] INFO: Sanity..... gone
+[2025-09-09T00:02:58.153Z] INFO: 💿 Found 208 music files
+[2025-09-09T00:02:58.154Z] INFO: 🎼 Found 1 SoundFont files
+[2025-09-09T00:02:58.154Z] INFO: 🎹 Midicube: Installed and available
+[2025-09-09T00:03:11.026Z] WARN: 404 - GET /favicon.ico
+[2025-09-09T00:03:11.551Z] INFO: Found 208 music files
+[2025-09-09T00:03:11.559Z] INFO: Found 1 SoundFont files
+[2025-09-09T00:03:11.636Z] INFO: Found 1 SoundFont files
+[2025-09-09T00:03:15.550Z] WARN: 404 - GET /music/undefined
+[2025-09-09T00:03:49.813Z] WARN: 404 - GET /node_modules/midicube/dist/midicube.min.js
+[2025-09-09T00:03:49.828Z] WARN: 404 - GET /node_modules/midicube/dist/midicube.min.js
+[2025-09-09T00:03:50.837Z] INFO: Found 1 SoundFont files
+[2025-09-09T00:04:55.893Z] INFO: Found 1 SoundFont files
+[2025-09-09T00:05:57.294Z] INFO: Found 1 SoundFont files
+[2025-09-09T00:06:02.992Z] INFO: Found 1 SoundFont files
+[2025-09-09T00:06:51.319Z] WARN: 404 - GET /[object%20ArrayBuffer]acoustic_grand_piano-mp3.js
+[2025-09-09T00:07:29.402Z] INFO: 🛑 Received SIGINT, shutting down gracefully
+[2025-09-09T00:08:34.032Z] INFO: 🎵 Initializing Fusion Music Player Server v2.5...
+[2025-09-09T00:08:34.039Z] INFO: 🌐 Server running on 0.0.0.0:3000
+[2025-09-09T00:08:34.039Z] INFO: 🐳 Docker mode: NO
+[2025-09-09T00:08:34.039Z] INFO: 🔗 Access URLs:
+[2025-09-09T00:08:34.039Z] INFO:    Local:    http://localhost:3000
+[2025-09-09T00:08:34.040Z] INFO:    Network:  http://0.0.0.0:3000
+[2025-09-09T00:08:34.040Z] INFO: 📦 WASM Support: Enabled with proper MIME types
+[2025-09-09T00:08:34.040Z] INFO: 🎹 Midicube Support: Enabled
+[2025-09-09T00:08:34.040Z] INFO: Sanity..... gone
+[2025-09-09T00:08:34.041Z] INFO: 💿 Found 208 music files
+[2025-09-09T00:08:34.041Z] INFO: 🎼 Found 1 SoundFont files
+[2025-09-09T00:08:34.042Z] INFO: 🎹 Midicube: Installed and available
+[2025-09-09T00:08:37.850Z] INFO: Found 208 music files
+[2025-09-09T00:08:37.858Z] INFO: Found 1 SoundFont files
+[2025-09-09T00:08:37.947Z] INFO: Found 1 SoundFont files
+[2025-09-09T00:08:47.731Z] WARN: 404 - GET /music/undefined
+[2025-09-09T00:09:59.787Z] INFO: 🛑 Received SIGINT, shutting down gracefully
