@@ -374,8 +374,6 @@ class FallbackAudioEngine {
             if (this.currentPlayback?.type === 'chiptune' && this.chiptunePlayer) {
                 this.chiptunePlayer.togglePause();
             } else if (this.currentPlayback?.type === 'midi' && this.tinySynth) {
-                // For MIDI, record pause time for manual tracking
-                this.midiPausedTime = performance.now();
                 this.tinySynth.stopMIDI();
             }
             
@@ -399,12 +397,7 @@ class FallbackAudioEngine {
             if (this.currentPlayback?.type === 'chiptune' && this.chiptunePlayer) {
                 this.chiptunePlayer.togglePause();
             } else if (this.currentPlayback?.type === 'midi' && this.tinySynth) {
-                // For MIDI, adjust start time to account for pause duration
-                const pauseDuration = performance.now() - this.midiPausedTime;
-                this.midiStartTime += pauseDuration;
-                this.midiPausedTime = 0;
-                
-                this.tinySynth.playMIDI();
+		this.tinySynth.playMIDI();
             }
             
             if (this.uiController) {
@@ -492,7 +485,7 @@ class FallbackAudioEngine {
                     
                     // Try TinySynth methods first
                     if (this.tinySynth.getPlayTime) {
-                        const synthTime = this.tinySynth.getPlayTime();
+                        const synthTime = this.tinySynth.getPlayStatus()['curTick'] * this.tinySynth.tick2Time;
                         if (synthTime > 0) {
                             currentTime = synthTime;
                         }
