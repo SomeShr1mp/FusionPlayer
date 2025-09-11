@@ -484,7 +484,7 @@ class FallbackAudioEngine {
                     duration = this.midiDuration || this.duration;
                     
                     // Try TinySynth methods first
-                    if (this.tinySynth.getPlayTime) {
+                    if (this.tinySynth.getPlayStatus) {
                         const synthTime = this.tinySynth.getPlayStatus()['curTick'] * this.tinySynth.tick2Time;
                         if (synthTime > 0) {
                             currentTime = synthTime;
